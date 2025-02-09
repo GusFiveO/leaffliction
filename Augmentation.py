@@ -37,7 +37,7 @@ def augmentation(file_path):
     for i, (name, transform) in enumerate(augmentations.items()):
         augmented_image = transform(image)
         axes[i + 1].imshow(augmented_image)
-        axes[i + 1].set_title(transform.__class__.__name__)
+        axes[i + 1].set_title(name)
         output_path = os.path.join(parent_dir, f"{basename}_{name}.JPG")
         print(output_path)
         augmented_image.save(output_path)
