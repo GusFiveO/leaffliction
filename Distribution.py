@@ -1,6 +1,6 @@
 import matplotlib
 
-matplotlib.use("GTK3Agg")
+# matplotlib.use("GTK3Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
