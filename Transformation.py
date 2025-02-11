@@ -5,26 +5,83 @@ import cv2
 
 
 def convert_to_grayscale(img):
-    # gray = pcv.rgb2gray_lab(img, "l")
-    gray = pcv.rgb2gray(img)
+    gray = pcv.rgb2gray_lab(img, "a")
     return gray
 
 
-def apply_gaussian_blur(gray, ksize=5):
+def apply_gaussian_blur(gray, ksize=11):
     blurred = pcv.gaussian_blur(gray, (ksize, ksize), 0)
     return blurred
+
+
+def create_mask(gray, threshold=125):
+    binary = pcv.threshold.otsu(gray, "dark")
+    binary_clean = pcv.fill(binary, size=200)
+    return binary_clean
+
+
+def apply_mask(img, mask):
+    masked = pcv.apply_mask(img, mask, mask_color="white")
+    return masked
+
+
+def analyze(img, mask):
+    shape_img = pcv.analyze.size(img=img, labeled_mask=mask)
+    return shape_img
 
 
 def transform(file_path):
     img, imgpath, imgname = pcv.readimage(file_path)
     pcv.params.debug = "print"
+    pcv.params.sample_label = "plant"
+    cs = pcv.visualize.colorspaces(rgb_img=img, original_img=False)
+    pcv.plot_image(cs)
+    grayscale_img = convert_to_grayscale(img)
+    blurred_img = apply_gaussian_blur(grayscale_img)
+    mask = create_mask(grayscale_img)
+    # threshold_img = create_mask(blurred_img)
+    masked_img = apply_mask(img, mask)
+    analyze_img = analyze(img, mask)
 
-    gray_scale_img = convert_to_grayscale(img)
-    blurred_img = apply_gaussian_blur(gray_scale_img)
-    fig, axs = plt.subplots(1, 3)
-    axs[0].imshow(img)
-    axs[1].imshow(gray_scale_img, cmap="gray")
-    axs[2].imshow(blurred_img, cmap="gray")
+    top, bottom, center_v = pcv.homology.x_axis_pseudolandmarks(img=img, mask=mask)
+
+    # Access data stored out from x_axis_pseudolandmarks
+    bottom_landmarks = pcv.outputs.observations["plant"]["bottom_lmk"]["value"]
+    top_landmarks = pcv.outputs.observations["plant"]["top_lmk"]["value"]
+    center_landmarks = pcv.outputs.observations["plant"]["center_v_lmk"]["value"]
+
+    fig, axs = plt.subplots(2, 3)
+    axs[0][0].imshow(img)
+    axs[0][1].imshow(blurred_img, cmap="gray")
+    axs[0][2].imshow(mask, cmap="gray")
+    axs[1][0].imshow(masked_img)
+    axs[1][1].imshow(analyze_img)
+    axs[1][2].imshow(img)
+    bottom_landmarks_x, bottom_landmarks_y = zip(*bottom_landmarks)
+    axs[1][2].scatter(
+        bottom_landmarks_x,
+        bottom_landmarks_y,
+        color="red",
+        marker="o",
+        label="Bottom Landmark",
+    )
+    top_landmarks_x, top_landmarks_y = zip(*top_landmarks)
+    axs[1][2].scatter(
+        top_landmarks_x,
+        top_landmarks_y,
+        color="blue",
+        marker="o",
+        label="Top Landmark",
+    )
+    center_landmarks_x, center_landmarks_y = zip(*center_landmarks)
+    axs[1][2].scatter(
+        center_landmarks_x,
+        center_landmarks_y,
+        color="green",
+        marker="o",
+        label="Center Landmark",
+    )
+
     plt.show()
 
 
