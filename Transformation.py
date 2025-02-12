@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 from matplotlib import pyplot as plt
 from plantcv import plantcv as pcv
 import cv2
@@ -6,6 +7,9 @@ import cv2
 
 def convert_to_grayscale(img):
     gray = pcv.rgb2gray_lab(img, "a")
+    # gray = pcv.rgb2gray_lab(img, "l")
+    # gray = pcv.rgb2gray_hsv(img, "s")
+    # gray = pcv.rgb2gray_hsv(img, "")
     return gray
 
 
@@ -15,8 +19,14 @@ def apply_gaussian_blur(gray, ksize=11):
 
 
 def create_mask(gray, threshold=125):
-    binary = pcv.threshold.otsu(gray, "dark")
-    binary_clean = pcv.fill(binary, size=200)
+    # binary = pcv.threshold.otsu(gray, "light")
+    # binary = pcv.threshold.otsu(gray, "dark")
+    binary = pcv.threshold.gaussian(
+        gray_img=gray, ksize=2500, offset=5, object_type="dark"
+    )
+    # binary = pcv.erode(binary,ksize=5, i=1)
+    binary = pcv.fill(binary, size=200)
+    binary_clean = pcv.fill_holes(binary)
     return binary_clean
 
 
@@ -30,6 +40,35 @@ def analyze(img, mask):
     return shape_img
 
 
+def extract_LAB_channels(img):
+    l_channel = pcv.rgb2gray_lab(rgb_img=img, channel="l")
+    a_channel = pcv.rgb2gray_lab(rgb_img=img, channel="a")
+    b_channel = pcv.rgb2gray_lab(rgb_img=img, channel="b")
+    return {"l": l_channel, "a": a_channel, "b": b_channel}
+
+
+def extract_HSV_channels(img):
+    h_channel = pcv.rgb2gray_hsv(rgb_img=img, channel="h")
+    s_channel = pcv.rgb2gray_hsv(rgb_img=img, channel="s")
+    v_channel = pcv.rgb2gray_hsv(rgb_img=img, channel="v")
+    return {"h": h_channel, "s": s_channel, "v": v_channel}
+
+
+def extract_RGB_channels(img):
+    # [x for xs in xss for x in xs]
+    r_channel = [r for chan in img[:, :, 0] for r in chan]
+    g_channel = [r for chan in img[:, :, 1] for r in chan]
+    b_channel = [r for chan in img[:, :, 2] for r in chan]
+    r_count, r_bins = np.histogram(r_channel, 50)
+    r_proportion = (r_count / r_count.sum()) * 100
+    ax = plt.subplot()
+    ax.plot(r_bins[:-1], r_proportion)
+    # ax.hist(g_channel)
+    # ax.hist(b_channel)
+    plt.plot()
+    return {"r": r_channel, "g": g_channel, "b": b_channel}
+
+
 def transform(file_path):
     img, imgpath, imgname = pcv.readimage(file_path)
     pcv.params.debug = "print"
@@ -39,9 +78,11 @@ def transform(file_path):
     grayscale_img = convert_to_grayscale(img)
     blurred_img = apply_gaussian_blur(grayscale_img)
     mask = create_mask(grayscale_img)
-    # threshold_img = create_mask(blurred_img)
+    # mask = create_mask(blurred_img)
     masked_img = apply_mask(img, mask)
     analyze_img = analyze(img, mask)
+
+    extract_RGB_channels(img)
 
     top, bottom, center_v = pcv.homology.x_axis_pseudolandmarks(img=img, mask=mask)
 
@@ -52,7 +93,8 @@ def transform(file_path):
 
     fig, axs = plt.subplots(2, 3)
     axs[0][0].imshow(img)
-    axs[0][1].imshow(blurred_img, cmap="gray")
+    # axs[0][1].imshow(blurred_img, cmap="gray")
+    axs[0][1].imshow(grayscale_img, cmap="gray")
     axs[0][2].imshow(mask, cmap="gray")
     axs[1][0].imshow(masked_img)
     axs[1][1].imshow(analyze_img)
