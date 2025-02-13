@@ -1,4 +1,7 @@
 import sys
+from PIL import Image
+import os
+import argparse
 import numpy as np
 from matplotlib import pyplot as plt
 from plantcv import plantcv as pcv
@@ -22,9 +25,6 @@ color_channel_map = {
 
 def convert_to_grayscale(img):
     gray = pcv.rgb2gray_lab(img, "a")
-    # gray = pcv.rgb2gray_lab(img, "l")
-    # gray = pcv.rgb2gray_hsv(img, "s")
-    # gray = pcv.rgb2gray_hsv(img, "")
     return gray
 
 
@@ -34,12 +34,10 @@ def apply_gaussian_blur(gray, ksize=11):
 
 
 def create_mask(gray, threshold=125):
-    # binary = pcv.threshold.otsu(gray, "light")
-    # binary = pcv.threshold.otsu(gray, "dark")
     binary = pcv.threshold.gaussian(
         gray_img=gray, ksize=2500, offset=5, object_type="dark"
     )
-    # binary = pcv.erode(binary,ksize=5, i=1)
+    # binary = pcv.erode(binary, ksize=5, i=1)
     binary = pcv.fill(binary, size=200)
     binary_clean = pcv.fill_holes(binary)
     return binary_clean
@@ -53,6 +51,39 @@ def apply_mask(img, mask):
 def analyze(img, mask):
     shape_img = pcv.analyze.size(img=img, labeled_mask=mask)
     return shape_img
+
+
+def draw_landmarks(img, landmarks, color):
+    for x, y in landmarks:
+        cv2.circle(
+            img,
+            (int(x), int(y)),
+            radius=5,
+            color=color,
+            thickness=-1,
+        )
+
+
+def apply_landmarks(img, mask):
+
+    pcv.homology.x_axis_pseudolandmarks(img=img, mask=mask)
+
+    bottom_landmarks = pcv.outputs.observations["plant"]["bottom_lmk"]["value"]
+    top_landmarks = pcv.outputs.observations["plant"]["top_lmk"]["value"]
+    center_landmarks = pcv.outputs.observations["plant"]["center_v_lmk"]["value"]
+
+    img_with_landmarks = img.copy()
+
+    colors = {
+        "bottom": (0, 0, 255),  # Red
+        "top": (255, 0, 0),  # Blue
+        "center": (0, 255, 0),  # Green
+    }
+
+    draw_landmarks(img_with_landmarks, bottom_landmarks, colors["bottom"])
+    draw_landmarks(img_with_landmarks, top_landmarks, colors["top"])
+    draw_landmarks(img_with_landmarks, center_landmarks, colors["center"])
+    return img_with_landmarks
 
 
 def extract_channel_histograms(img, color_space, channels, bins=50, range=(0, 255)):
@@ -136,20 +167,30 @@ def plot_colorspaces(img):
     ax.imshow(cs)
 
 
-def plot_image_transformations(img):
+def save_image(img_array, name, dst):
+    new_image_path = os.path.join(dst, name)
+    os.makedirs(dst, exist_ok=True)
+    img = Image.fromarray(img_array)
+    img.save(new_image_path)
+    print(f"SAVED: {new_image_path}")
+
+
+def save_transformation(img, transformation_name, original_name, dst_dir):
+    if dst_dir is None:
+        return
+    basename, ext = original_name.split(".", 1)
+    new_image_name = f"{basename}_{transformation_name}.{ext}"
+    save_image(img, new_image_name, dst_dir)
+
+
+def plot_image_transformations(img, imgname, dst_dir):
     grayscale_img = convert_to_grayscale(img)
     blurred_img = apply_gaussian_blur(grayscale_img)
     mask = create_mask(grayscale_img)
     # mask = create_mask(blurred_img)
     masked_img = apply_mask(img, mask)
     analyze_img = analyze(img, mask)
-
-    pcv.homology.x_axis_pseudolandmarks(img=img, mask=mask)
-
-    # Access data stored out from x_axis_pseudolandmarks
-    bottom_landmarks = pcv.outputs.observations["plant"]["bottom_lmk"]["value"]
-    top_landmarks = pcv.outputs.observations["plant"]["top_lmk"]["value"]
-    center_landmarks = pcv.outputs.observations["plant"]["center_v_lmk"]["value"]
+    landmarks_img = apply_landmarks(img, mask)
 
     fig, axs = plt.subplots(2, 3)
     axs[0][0].imshow(img)
@@ -157,42 +198,23 @@ def plot_image_transformations(img):
 
     axs[0][1].imshow(grayscale_img, cmap="gray")
     axs[0][1].set_title("Green magenta channel")
+    save_transformation(grayscale_img, "Grayscale", imgname, dst_dir)
 
     axs[0][2].imshow(mask, cmap="gray")
     axs[0][2].set_title("Image mask")
+    save_transformation(mask, "Mask", imgname, dst_dir)
 
     axs[1][0].imshow(masked_img)
     axs[1][0].set_title("Masked Image")
+    save_transformation(masked_img, "Masked", imgname, dst_dir)
 
     axs[1][1].imshow(analyze_img)
     axs[1][1].set_title("Size and shape")
+    save_transformation(analyze_img, "Size&Shape", imgname, dst_dir)
 
-    axs[1][2].imshow(img)
-    bottom_landmarks_x, bottom_landmarks_y = zip(*bottom_landmarks)
-    axs[1][2].scatter(
-        bottom_landmarks_x,
-        bottom_landmarks_y,
-        color="red",
-        marker="o",
-        label="Bottom Landmark",
-    )
-    top_landmarks_x, top_landmarks_y = zip(*top_landmarks)
-    axs[1][2].scatter(
-        top_landmarks_x,
-        top_landmarks_y,
-        color="blue",
-        marker="o",
-        label="Top Landmark",
-    )
-    center_landmarks_x, center_landmarks_y = zip(*center_landmarks)
-    axs[1][2].scatter(
-        center_landmarks_x,
-        center_landmarks_y,
-        color="green",
-        marker="o",
-        label="Center Landmark",
-    )
+    axs[1][2].imshow(landmarks_img)
     axs[1][2].set_title("Pseudo-landmarks")
+    save_transformation(landmarks_img, "PsLandmarks", imgname, dst_dir)
 
     fig.suptitle("Image Transformations")
     for ax in axs.flat:
@@ -200,18 +222,22 @@ def plot_image_transformations(img):
         ax.set_yticks([])
 
 
-def transform(file_path):
+def transform(file_path, dst):
     img, imgpath, imgname = pcv.readimage(file_path)
     pcv.params.sample_label = "plant"
     plot_color_histogram(img)
 
     plot_colorspaces(img)
 
-    plot_image_transformations(img)
+    plot_image_transformations(img, imgname, dst)
 
     plt.show()
 
 
 if __name__ == "__main__":
-    file_path = sys.argv[1]
-    transform(file_path)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file_path")
+    parser.add_argument("-dst", type=str, required=False)
+    args = parser.parse_args()
+
+    transform(args.file_path, args.dst)
