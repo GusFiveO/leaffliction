@@ -1,7 +1,8 @@
+import argparse
 import sys
 import os
-import torchvision
 import torch
+import torchvision
 import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,20 +10,27 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, SubsetRandomSampler
 import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+    classification_report,
+)
 import matplotlib.pyplot as plt
+from torcheval.metrics import (
+    MulticlassAccuracy,
+    MulticlassF1Score,
+    MulticlassRecall,
+    MulticlassPrecision,
+    MulticlassConfusionMatrix,
+)
 
 
-class CNN(nn.Module):
+class LeafCNN(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(
-            3, 6, 5
-        )  # (3, 256, 256) -> new dim (256 - 5 + (2 * 0)) / 1 + 1 ) = 252 (6, 252, 252)
-        self.pool = nn.MaxPool2d(2, 2)  # (6, 252, 252) -> (6, 126, 126)
-        self.conv2 = nn.Conv2d(
-            6, 16, 5
-        )  # (6, 126, 126) -> (16, 122, 122) -> MaxPool -> (16, 61, 61)
-        # self.fc1 = nn.Linear(16 * 61 * 61, 2048)
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
         self.fc1 = nn.Linear(16 * 13 * 13, 1024)
         self.dropout1 = nn.Dropout(0.5)
         self.fc2 = nn.Linear(1024, 128)
@@ -48,26 +56,17 @@ def imshow(img):
     plt.show()
 
 
-def load_dataset(directory_path):
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-    )
-    dataset = torchvision.datasets.ImageFolder(root=directory_path, transform=transform)
-    data_loader = DataLoader(dataset, batch_size=32, shuffle=True)
+def create_dataloaders(dataset):
+    data_loader = DataLoader(dataset, shuffle=True)
     dataiter = iter(data_loader)
     images, labels = next(dataiter)
-    # print(images, labels)
-    print(dataset.classes)
-    # imshow(torchvision.utils.make_grid(images))
     labels = np.array([dataset.targets[i] for i in range(len(dataset))])
 
-    # Define split sizes
-    train_size = 0.7  # 70% for training
-    val_size = 0.15  # 15% for validation
-    test_size = 0.15  # 15% for testing
+    train_size = 0.7
+    val_size = 0.15
+    test_size = 0.15
 
-    # First, split into train + temp (val + test)
-    train_idx, temp_idx, _, temp_labels = train_test_split(
+    train_indices, temp_indices, _, temp_labels = train_test_split(
         np.arange(len(dataset)),
         labels,
         stratify=labels,
@@ -75,66 +74,172 @@ def load_dataset(directory_path):
         random_state=42,
     )
 
-    # Then, split temp into validation and test
-    val_idx, test_idx = train_test_split(
-        temp_idx,
+    val_indices, test_indices = train_test_split(
+        temp_indices,
         stratify=temp_labels,
         test_size=(test_size / (test_size + val_size)),
         random_state=42,
     )
 
-    # Create samplers
-    train_sampler = SubsetRandomSampler(train_idx)
-    val_sampler = SubsetRandomSampler(val_idx)
-    test_sampler = SubsetRandomSampler(test_idx)
+    train_sampler = SubsetRandomSampler(train_indices)
+    val_sampler = SubsetRandomSampler(val_indices)
+    test_sampler = SubsetRandomSampler(test_indices)
 
-    # Create DataLoaders
     train_loader = DataLoader(dataset, batch_size=32, sampler=train_sampler)
     val_loader = DataLoader(dataset, batch_size=32, sampler=val_sampler)
-    # test_loader = DataLoader(dataset, batch_size=32, sampler=test_sampler)
     test_loader = DataLoader(dataset, sampler=test_sampler)
     return train_loader, val_loader, test_loader
 
 
-def train_model(train_loader):
-    net = CNN()
-    print(net)
+def load_dataset(directory_path):
+    transform = transforms.Compose(
+        [
+            transforms.Resize((64, 64)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ]
+    )
+    dataset = torchvision.datasets.ImageFolder(root=directory_path, transform=transform)
+    return dataset
+
+
+def compute_validation_metrics(model, validation_loader):
+    model.eval()
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
-    for epoch in range(2):  # loop over the dataset multiple times
+    validation_metrics = {"loss": 0}
+    with torch.no_grad():
+        f1_score = MulticlassF1Score(num_classes=4, average="macro")
+        for inputs, labels in validation_loader:
+            outputs = model(inputs)
+            preds = torch.argmax(outputs, dim=1)
 
+            loss = criterion(outputs, labels)
+            validation_metrics["loss"] += loss.item()
+            f1_score.update(preds, labels)
+    validation_metrics["loss"] /= len(validation_loader)
+    validation_metrics["f1_score"] = f1_score.compute()
+    model.train()
+    return validation_metrics
+
+
+def update_validation_metrics_history(
+    model, validation_loader, validation_metrics_history
+):
+    new_validation_metrics = compute_validation_metrics(model, validation_loader)
+    for name, value in new_validation_metrics.items():
+        validation_metrics_history[name].append(value)
+
+
+def early_stopping(
+    state_dict, validation_loss, best_loss=None, counter=0, patience=5, min_delta=0
+):
+    if best_loss is None:
+        best_loss = validation_loss
+    elif validation_loss < best_loss - min_delta:
+        best_loss = validation_loss
+        counter = 0
+    else:
+        counter += 1
+        if counter >= patience:
+            torch.save(state_dict, "best_model.pth")
+            return True, best_loss, counter
+    return False, best_loss, counter
+
+
+def train_model(train_loader, validation_loader, epochs, patience):
+    model = LeafCNN()
+    criterion = nn.CrossEntropyLoss()
+    best_loss = None
+    counter = 0
+    optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.001)
+    validation_metrics_history = {"f1_score": [], "loss": [], "accuracy": []}
+    train_metrics_history = {"f1_score": [], "loss": [], "accuracy": []}
+    for epoch in range(epochs):
         running_loss = 0.0
         for i, data in enumerate(train_loader, 0):
-            # get the inputs; data is a list of [inputs, labels]
             inputs, labels = data
-
-            # zero the parameter gradients
             optimizer.zero_grad()
-
-            # forward + backward + optimize
-            outputs = net(inputs)
+            outputs = model(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
-
-            # print statistics
             running_loss += loss.item()
-            print(i)
-        print(f"[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}")
-    return net
+
+            print(epoch, running_loss / len(train_loader), best_loss, i)
+        train_metrics_history["loss"].append(running_loss / len(train_loader))
+        update_validation_metrics_history(
+            model, validation_loader, validation_metrics_history
+        )
+        state_dict = model.state_dict()
+        stop, best_loss, counter = early_stopping(
+            state_dict,
+            validation_metrics_history["loss"][-1],
+            best_loss=best_loss,
+            counter=counter,
+            patience=patience,
+        )
+        if stop:
+            return validation_metrics_history, train_metrics_history
+    torch.save(model.state_dict(), "best_model.pth")
+    return validation_metrics_history, train_metrics_history
 
 
-def test_model(net, test_loader):
-    classes = test_loader.classes
-    outputs = net(test_loader)
-    _, predicted = torch.max(outputs, 1)
+def evaluate_model(model, test_loader, class_names):
+    model.eval()
+    all_preds = []
+    all_labels = []
+    with torch.no_grad():
+        for images, labels in test_loader:
+            outputs = model(images)
+            preds = torch.argmax(outputs, dim=1)
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+    all_preds = torch.tensor(all_preds)
+    all_labels = torch.tensor(all_labels)
 
-    print("Predicted: ", " ".join(f"{classes[predicted[j]]:5s}" for j in range(4)))
+    report = classification_report(all_labels, all_preds, target_names=class_names)
+    print(report)
+    cm = confusion_matrix(all_labels, all_preds)
+    ConfusionMatrixDisplay(cm, display_labels=class_names).plot()
+    plt.show()
 
 
 if __name__ == "__main__":
-    dir_path = sys.argv[1]
-    train_loader, val_loader, test_loader = load_dataset(dir_path)
-    net = train_model(train_loader)
-    test_model(net, test_loader)
+    parser = argparse.ArgumentParser(
+        description="Train and evaluate a CNN on leaf images."
+    )
+    parser.add_argument("data_dir", type=str, help="Directory path to the dataset.")
+    parser.add_argument(
+        "--epochs", type=int, default=100, help="Number of training epochs."
+    )
+    parser.add_argument(
+        "--patience", type=int, default=10, help="Early stopping patience."
+    )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["train", "test"],
+        required=True,
+        help="Mode: train or test.",
+    )
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        help="Path to the trained model file (required for test mode).",
+    )
+    args = parser.parse_args()
+
+    dataset = load_dataset(args.data_dir)
+    train_loader, val_loader, test_loader = create_dataloaders(dataset)
+
+    if args.mode == "train":
+        validation_history, train_history = train_model(
+            train_loader, val_loader, args.epochs, args.patience
+        )
+    elif args.mode == "test":
+        if not args.model_path:
+            raise ValueError("Model path must be provided for test mode.")
+        model = LeafCNN()
+        model.load_state_dict(torch.load(args.model_path))
+        evaluate_model(model, test_loader, dataset.classes)

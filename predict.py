@@ -3,11 +3,11 @@ import torchvision.transforms as transforms
 from PIL import Image
 import matplotlib.pyplot as plt
 import sys
-from train import CNN
+from train import LeafCNN
 
 
 def load_model(weights_path):
-    model = CNN()
+    model = LeafCNN()
     model.load_state_dict(torch.load(weights_path))
     model.eval()
     return model
