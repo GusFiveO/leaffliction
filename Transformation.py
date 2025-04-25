@@ -240,7 +240,7 @@ def parse_args():
     parser.add_argument(
         "dst", type=str, help="Destination directory for transformed images"
     )
-    return parser
+    return parser.parse_args()
 
 
 if __name__ == "__main__":

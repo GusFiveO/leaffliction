@@ -1,4 +1,6 @@
 import os
+import argparse
+
 import random
 import shutil
 from PIL import Image
@@ -63,15 +65,35 @@ def augment_dataset(original_dir, augmented_dir):
             print(f"Augmented {augmented_image_path}")
 
 
-if __name__ == "__main__":
-    original_apple_dataset_dir = os.path.expanduser("~/sgoinfre/leaves/images/Apple/")
-    augmented_apple_dataset_dir = os.path.expanduser(
-        "~/sgoinfre/leaves/augmented_dataset/Apple/"
-    )
-    augment_dataset(original_apple_dataset_dir, augmented_apple_dataset_dir)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Augmentation script")
+    parser.add_argument("original_dir", type=str, help="Path to the original dataset")
+    parser.add_argument("augmented_dir", type=str, help="Path to the augmented dataset")
+    return parser.parse_args()
 
-    original_grape_dataset_dir = os.path.expanduser("~/sgoinfre/leaves/images/Grape/")
-    augmented_grape_dataset_dir = os.path.expanduser(
-        "~/sgoinfre/leaves/augmented_dataset/Grape/"
-    )
-    augment_dataset(original_grape_dataset_dir, augmented_grape_dataset_dir)
+
+if __name__ == "__main__":
+    args = parse_args()
+    original_dir = args.original_dir
+    augmented_dir = args.augmented_dir
+    if not os.path.exists(original_dir):
+        print(f"Original directory does not exist: {original_dir}")
+        exit(1)
+    # if not os.path.exists(augmented_dir):
+    #     print(f"Augmented directory does not exist: {augmented_dir}")
+    #     exit(1)
+    # original_dataset_dir = os.path.expanduser(original_dir)
+    # augmented_dataset_dir = os.path.expanduser(augment_dataset)
+    # augment_dataset(original_dataset_dir, augmented_dataset_dir)
+    augment_dataset(original_dir, augmented_dir)
+    # original_apple_dataset_dir = os.path.expanduser("~/sgoinfre/leaves/images/Apple/")
+    # augmented_apple_dataset_dir = os.path.expanduser(
+    #     "~/sgoinfre/leaves/augmented_dataset/Apple/"
+    # )
+    # augment_dataset(original_apple_dataset_dir, augmented_apple_dataset_dir)
+
+    # original_grape_dataset_dir = os.path.expanduser("~/sgoinfre/leaves/images/Grape/")
+    # augmented_grape_dataset_dir = os.path.expanduser(
+    #     "~/sgoinfre/leaves/augmented_dataset/Grape/"
+    # )
+    # augment_dataset(original_grape_dataset_dir, augmented_grape_dataset_dir)

@@ -109,6 +109,7 @@ def compute_validation_metrics(model, validation_loader):
 
     validation_metrics = {"loss": 0}
     with torch.no_grad():
+        accuracy = MulticlassAccuracy(num_classes=4)
         f1_score = MulticlassF1Score(num_classes=4, average="macro")
         for inputs, labels in validation_loader:
             outputs = model(inputs)
@@ -117,8 +118,10 @@ def compute_validation_metrics(model, validation_loader):
             loss = criterion(outputs, labels)
             validation_metrics["loss"] += loss.item()
             f1_score.update(preds, labels)
+            accuracy.update(preds, labels)
     validation_metrics["loss"] /= len(validation_loader)
     validation_metrics["f1_score"] = f1_score.compute()
+    validation_metrics["accuracy"] = accuracy.compute()
     model.train()
     return validation_metrics
 
@@ -129,6 +132,21 @@ def update_validation_metrics_history(
     new_validation_metrics = compute_validation_metrics(model, validation_loader)
     for name, value in new_validation_metrics.items():
         validation_metrics_history[name].append(value)
+
+
+def update_train_metrics_history(outputs, loss, train_loader, train_metrics_history):
+    _, predicted = torch.max(outputs, 1)
+    accuracy = MulticlassAccuracy(num_classes=4)
+    f1_score = MulticlassF1Score(num_classes=4, average="macro")
+
+    for inputs, labels in train_loader:
+        accuracy.update(predicted, labels)
+        f1_score.update(predicted, labels)
+
+    train_metrics_history["accuracy"].append(accuracy.compute())
+    train_metrics_history["f1_score"].append(f1_score.compute())
+    train_metrics_history["loss"].append(loss / len(train_loader))
+    return train_metrics_history
 
 
 def early_stopping(
@@ -167,7 +185,11 @@ def train_model(train_loader, validation_loader, epochs, patience):
             running_loss += loss.item()
 
             print(epoch, running_loss / len(train_loader), best_loss, i)
-        train_metrics_history["loss"].append(running_loss / len(train_loader))
+        # train_metrics_history["loss"].append(running_loss / len(train_loader))
+        # update_train_metrics_history(
+        #     outputs, running_loss, train_loader, train_metrics_history
+        # )
+        update_validation_metrics_history(model, train_loader, train_metrics_history)
         update_validation_metrics_history(
             model, validation_loader, validation_metrics_history
         )
@@ -250,6 +272,33 @@ if __name__ == "__main__":
         validation_history, train_history = train_model(
             train_loader, val_loader, args.epochs, args.patience
         )
+        fig, axs = plt.subplots(3, 1, figsize=(10, 10))
+        axs[0].plot(validation_history["loss"], label="Validation Loss", color="blue")
+        axs[0].plot(train_history["loss"], label="Training Loss", color="green")
+        axs[1].plot(
+            validation_history["f1_score"], label="Validation F1 Score", color="orange"
+        )
+        axs[1].plot(train_history["f1_score"], label="Training F1 Score", color="red")
+        axs[2].plot(
+            validation_history["accuracy"], label="Validation Accuracy", color="purple"
+        )
+        axs[2].plot(train_history["accuracy"], label="Training Accuracy", color="brown")
+        axs[0].set_title("Loss")
+        axs[1].set_title("Validation F1 Score")
+        axs[2].set_title("Accuracy")
+        axs[0].set_xlabel("Epochs")
+        axs[1].set_xlabel("Epochs")
+        axs[2].set_xlabel("Epochs")
+        axs[0].set_ylabel("Loss")
+        axs[1].set_ylabel("F1 Score")
+        axs[2].set_ylabel("Accuracy")
+        axs[0].legend()
+        axs[1].legend()
+        axs[2].legend()
+        print(validation_history)
+        print(train_history)
+        plt.tight_layout()
+        plt.show()
     elif args.mode == "test":
         model = LeafCNN()
         model.load_state_dict(torch.load(args.model_path))

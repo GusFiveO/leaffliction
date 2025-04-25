@@ -88,6 +88,20 @@ To run the project, ensure you have the following dependencies installed:
 pip install -r requirements.txt
 ```
 
+### Augmenting the Dataset
+
+To augment one image, use the following command:
+
+```bash
+python Augmentation.py <file_path> <dst>
+```
+
+To augment a whole dataset, use the following command:
+
+```bash
+python augment_dataset.py <original_dir> <augmented_dir>
+```
+
 ### Training the Model
 
 To train the model, use the following command:
@@ -120,6 +134,10 @@ python Distribution.py <directory_path>
 
 ## Results
 
+### Augmentation
+
+![Augmentation](screenshots/LEAFFLICTION-augmentation.png)
+
 ### Training and Validation Loss
 
 ![Training and Validation Loss](path_to_loss_plot.png)
@@ -142,16 +160,17 @@ python Distribution.py <directory_path>
 
 The `Transformation.py` script generates visualizations of image transformations, including grayscale conversion, mask application, and landmark analysis.
 
-![Image Transformations](path_to_image_transformations.png)
+![Image Transformations](screenshots/LEAFFLICTION-transformation.png)
 
 ### Color Histograms
 
 The `Transformation.py` script also generates color histograms for the RGB, LAB, and HSV color spaces.
 
-![Color Histograms](path_to_color_histograms.png)
+![Color Histograms](screenshots/LEAFFLICTION-color-distribution.png)
 
 ### Distribution Charts
 
 The `Distribution.py` script generates distribution charts to visualize the number of images in each class.
 
-![Distribution Charts](path_to_distribution_charts.png)
+![Apple Distribution Charts](screenshots/LEAFFLICTION-apple-distribution.png)
+![Grape Distribution Charts](screenshots/LEAFFLICTION-grape-distribution.png)
