@@ -3,3 +3,6 @@ images/
 .DS_Store
 leaffliction/
 *.png
+.env
+.ipynb_checkpoints/
+.vscode/

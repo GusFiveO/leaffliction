@@ -1,4 +1,4 @@
-import sys
+import argparse
 
 # matplotlib.use("GTK3Agg")
 
@@ -41,6 +41,16 @@ def augmentation(file_path):
     plt.show()
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Augmentation script")
+    parser.add_argument("file_path", type=str, help="Path to the image file")
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    file_path = sys.argv[1]
+    args = parse_args()
+    file_path = args.file_path
+    if not os.path.exists(file_path):
+        print(f"File does not exist: {file_path}")
+        exit(1)
     augmentation(file_path)

@@ -205,7 +205,7 @@ def evaluate_model(model, test_loader, class_names):
     plt.show()
 
 
-if __name__ == "__main__":
+def parse_args():
     parser = argparse.ArgumentParser(
         description="Train and evaluate a CNN on leaf images."
     )
@@ -228,7 +228,20 @@ if __name__ == "__main__":
         type=str,
         help="Path to the trained model file (required for test mode).",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    if not os.path.exists(args.data_dir):
+        print(f"Data directory does not exist: {args.data_dir}")
+        sys.exit(1)
+    if not os.path.isdir(args.data_dir):
+        print(f"Data directory is not a valid directory: {args.data_dir}")
+        sys.exit(1)
+    if args.mode == "test" and not args.model_path:
+        print("Model path must be provided for test mode.")
+        sys.exit(1)
 
     dataset = load_dataset(args.data_dir)
     train_loader, val_loader, test_loader = create_dataloaders(dataset)
@@ -238,8 +251,6 @@ if __name__ == "__main__":
             train_loader, val_loader, args.epochs, args.patience
         )
     elif args.mode == "test":
-        if not args.model_path:
-            raise ValueError("Model path must be provided for test mode.")
         model = LeafCNN()
         model.load_state_dict(torch.load(args.model_path))
         evaluate_model(model, test_loader, dataset.classes)

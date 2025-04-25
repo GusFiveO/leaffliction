@@ -1,4 +1,5 @@
 import matplotlib
+import argparse
 
 # matplotlib.use("GTK3Agg")
 import matplotlib.pyplot as plt
@@ -35,6 +36,19 @@ def plot_distribution(directory_path):
     plt.show()
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Distribution script")
+    parser.add_argument("directory_path", type=str, help="Path to the directory")
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    directory_path = sys.argv[1]
+    args = parse_args()
+    directory_path = args.directory_path
+    if not os.path.isdir(directory_path):
+        print(f"Directory not found: {directory_path}")
+        sys.exit(1)
+    if not os.path.exists(directory_path):
+        print(f"Directory does not exist: {directory_path}")
+        sys.exit(1)
     plot_distribution(directory_path)

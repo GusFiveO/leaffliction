@@ -234,10 +234,21 @@ def transform(file_path, dst):
     plt.show()
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("file_path")
-    parser.add_argument("-dst", type=str, required=False)
-    args = parser.parse_args()
+def parse_args():
+    parser = argparse.ArgumentParser(description="Image transformation script")
+    parser.add_argument("file_path", type=str, help="Path to the image file")
+    parser.add_argument(
+        "dst", type=str, help="Destination directory for transformed images"
+    )
+    return parser
 
+
+if __name__ == "__main__":
+    args = parse_args()
+    if not os.path.exists(args.file_path):
+        print(f"File does not exist: {args.file_path}")
+        sys.exit(1)
+    if not os.path.exists(args.dst):
+        print(f"Destination directory does not exist: {args.dst}")
+        sys.exit(1)
     transform(args.file_path, args.dst)

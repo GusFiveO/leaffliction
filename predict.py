@@ -1,4 +1,6 @@
+import os
 import torch
+import argparse
 import torchvision.transforms as transforms
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -40,13 +42,23 @@ def plot_image(image, prediction):
     plt.show()
 
 
-if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python predict.py <image_path> <weights_path>")
-        sys.exit(1)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Leaf Disease Prediction")
+    parser.add_argument("image_path", type=str, help="Path to the image file")
+    parser.add_argument("weights_path", type=str, help="Path to the model weights file")
+    return parser.parse_args()
 
-    image_path = sys.argv[1]
-    weights_path = sys.argv[2]
+
+if __name__ == "__main__":
+    args = parse_args()
+    image_path = args.image_path
+    weights_path = args.weights_path
+    if not os.path.exists(image_path):
+        print(f"Image file does not exist: {image_path}")
+        sys.exit(1)
+    if not os.path.exists(weights_path):
+        print(f"Weights file does not exist: {weights_path}")
+        sys.exit(1)
 
     class_names = ["Apple_Black_rot", "Apple_healthy", "Apple_rust", "Apple_scab"]
 
