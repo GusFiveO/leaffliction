@@ -19,9 +19,7 @@ This project implements a Convolutional Neural Network (CNN) to predict leaf dis
    - [Making Predictions](#making-predictions)
    - [Visualizations](#visualizations)
 3. [Results](#results)
-   - [Training and Validation Loss](#training-and-validation-loss)
-   - [Accuracy](#accuracy)
-   - [Precision and Recall](#precision-and-recall)
+   - [Test Metrics](#test-metrics)
    - [Confusion Matrix](#confusion-matrix)
 4. [Visualizations](#visualizations)
    - [Image Transformations](#image-transformations)
@@ -138,21 +136,13 @@ python Distribution.py <directory_path>
 
 ![Augmentation](screenshots/LEAFFLICTION-augmentation.png)
 
-### Training and Validation Loss
+### Test Metrics
 
-![Training and Validation Loss](path_to_loss_plot.png)
-
-### Accuracy
-
-![Accuracy](path_to_accuracy_plot.png)
-
-### Precision and Recall
-
-![Precision and Recall](path_to_precision_recall_plot.png)
+![Test Metrics](screenshots/LEAFFLICTION-output.png)
 
 ### Confusion Matrix
 
-![Confusion Matrix](path_to_confusion_matrix.png)
+![Confusion Matrix](screenshots/LEAFFLICTION-confusion-matrix.png)
 
 ## Visualizations
 
