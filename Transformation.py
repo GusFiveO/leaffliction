@@ -183,38 +183,33 @@ def save_transformation(img, transformation_name, original_name, dst_dir):
     save_image(img, new_image_name, dst_dir)
 
 
-def plot_image_transformations(img, imgname, dst_dir):
-    grayscale_img = convert_to_grayscale(img)
-    blurred_img = apply_gaussian_blur(grayscale_img)
-    mask = create_mask(grayscale_img)
-    # mask = create_mask(blurred_img)
-    masked_img = apply_mask(img, mask)
-    analyze_img = analyze(img, mask)
-    landmarks_img = apply_landmarks(img, mask)
+def plot_image_transformations(img, transformations):
 
+    # Plot the transformations
+    grayscale_img = transformations["grayscale"]
+    mask = transformations["mask"]
+    masked_img = transformations["masked"]
+    analyze_img = transformations["analyze"]
+    landmarks_img = transformations["landmarks"]
+    # Plot the images
     fig, axs = plt.subplots(2, 3)
     axs[0][0].imshow(img)
     axs[0][0].set_title("Original image")
 
     axs[0][1].imshow(grayscale_img, cmap="gray")
     axs[0][1].set_title("Green magenta channel")
-    save_transformation(grayscale_img, "Grayscale", imgname, dst_dir)
 
     axs[0][2].imshow(mask, cmap="gray")
     axs[0][2].set_title("Image mask")
-    save_transformation(mask, "Mask", imgname, dst_dir)
 
     axs[1][0].imshow(masked_img)
     axs[1][0].set_title("Masked Image")
-    save_transformation(masked_img, "Masked", imgname, dst_dir)
 
     axs[1][1].imshow(analyze_img)
     axs[1][1].set_title("Size and shape")
-    save_transformation(analyze_img, "Size&Shape", imgname, dst_dir)
 
     axs[1][2].imshow(landmarks_img)
     axs[1][2].set_title("Pseudo-landmarks")
-    save_transformation(landmarks_img, "PsLandmarks", imgname, dst_dir)
 
     fig.suptitle("Image Transformations")
     for ax in axs.flat:
@@ -222,33 +217,70 @@ def plot_image_transformations(img, imgname, dst_dir):
         ax.set_yticks([])
 
 
-def transform(file_path, dst):
-    img, imgpath, imgname = pcv.readimage(file_path)
+def save_transformations(transformations, imgname, dst):
+    # Save the transformations
+    for name, img in transformations.items():
+        save_transformation(img, name, imgname, dst)
+
+
+def save_transformation(img, transformation_name, original_name, dst_dir):
+    if dst_dir is None:
+        return
+    basename, ext = original_name.split(".", 1)
+    new_image_name = f"{basename}_{transformation_name}.{ext}"
+    save_image(img, new_image_name, dst_dir)
+
+
+def transform(file_path):
+    transformations = {}
     pcv.params.sample_label = "plant"
+    img, imgpath, imgname = pcv.readimage(file_path)
+    # fill the transormation dict with the transfornmations
+    transformations["original"] = img
+    transformations["grayscale"] = convert_to_grayscale(img)
+    transformations["blurred"] = apply_gaussian_blur(transformations["grayscale"])
+    transformations["mask"] = create_mask(transformations["grayscale"])
+    # transformation["mask"] = create_mask(transformation["blurred"])
+    transformations["masked"] = apply_mask(img, transformations["mask"])
+    transformations["analyze"] = analyze(img, transformations["mask"])
+    transformations["landmarks"] = apply_landmarks(img, transformations["mask"])
+    # Save the transformations
+    return img, imgpath, imgname, transformations
+
+
+def plot_transformations(img, transformations):
     plot_color_histogram(img)
 
     plot_colorspaces(img)
 
-    plot_image_transformations(img, imgname, dst)
+    plot_image_transformations(img, transformations)
 
     plt.show()
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Image transformation script")
-    parser.add_argument("file_path", type=str, help="Path to the image file")
+    parser.add_argument("-src", type=str, help="Path to the image file or directory")
     parser.add_argument(
-        "dst", type=str, help="Destination directory for transformed images"
+        "-dst", type=str, help="Destination directory for transformed images"
     )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    if not os.path.exists(args.file_path):
-        print(f"File does not exist: {args.file_path}")
+    if os.path.isfile(args.src):
+        img, _, name, transformations = transform(args.src)
+        plot_transformations(img, transformations)
+
+    elif os.path.isdir(args.src):
+        for root, _, files in os.walk(args.src):
+            for file in files:
+                if file.lower().endswith((".jpg", ".jpeg", ".png")):
+                    file_path = os.path.join(root, file)
+                    # transform(file_path)
+                    img, _, name, transformations = transform(file_path)
+                    save_transformations(transformations, name, args.dst)
+    else:
+        print(f"Source is neither a file nor a directory: {args.src}")
         sys.exit(1)
-    if not os.path.exists(args.dst):
-        print(f"Destination directory does not exist: {args.dst}")
-        sys.exit(1)
-    transform(args.file_path, args.dst)
