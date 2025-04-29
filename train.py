@@ -56,42 +56,46 @@ def imshow(img):
     plt.show()
 
 
-def create_dataloaders(dataset):
-    data_loader = DataLoader(dataset, shuffle=True)
-    dataiter = iter(data_loader)
-    images, labels = next(dataiter)
-    labels = np.array([dataset.targets[i] for i in range(len(dataset))])
+def create_dataloaders(train_dataset, valid_dataset):
+    # data_loader = DataLoader(dataset, shuffle=True)
+    # dataiter = iter(data_loader)
+    # images, labels = next(dataiter)
+    # labels = np.array([dataset.targets[i] for i in range(len(dataset))])
 
-    train_size = 0.7
-    val_size = 0.15
-    test_size = 0.15
+    # train_size = 0.7
+    # val_size = 0.15
+    # test_size = 0.15
 
-    train_indices, temp_indices, _, temp_labels = train_test_split(
-        np.arange(len(dataset)),
-        labels,
-        stratify=labels,
-        test_size=(1 - train_size),
-        random_state=42,
-    )
+    # train_indices, temp_indices, _, temp_labels = train_test_split(
+    #     np.arange(len(dataset)),
+    #     labels,
+    #     stratify=labels,
+    #     test_size=(1 - train_size),
+    #     random_state=42,
+    # )
 
-    val_indices, test_indices = train_test_split(
-        temp_indices,
-        stratify=temp_labels,
-        test_size=(test_size / (test_size + val_size)),
-        random_state=42,
-    )
+    # val_indices, test_indices = train_test_split(
+    #     temp_indices,
+    #     stratify=temp_labels,
+    #     test_size=(test_size / (test_size + val_size)),
+    #     random_state=42,
+    # )
 
-    train_sampler = SubsetRandomSampler(train_indices)
-    val_sampler = SubsetRandomSampler(val_indices)
-    test_sampler = SubsetRandomSampler(test_indices)
+    # train_sampler = SubsetRandomSampler(train_indices)
+    # val_sampler = SubsetRandomSampler(val_indices)
+    # test_sampler = SubsetRandomSampler(test_indices)
 
-    train_loader = DataLoader(dataset, batch_size=32, sampler=train_sampler)
-    val_loader = DataLoader(dataset, batch_size=32, sampler=val_sampler)
-    test_loader = DataLoader(dataset, sampler=test_sampler)
-    return train_loader, val_loader, test_loader
+    # train_loader = DataLoader(dataset, batch_size=32, sampler=train_sampler)
+    # val_loader = DataLoader(dataset, batch_size=32, sampler=val_sampler)
+    # test_loader = DataLoader(dataset, sampler=test_sampler)
+    train_loader = DataLoader(train_dataset, batch_size=32)
+    val_loader = DataLoader(valid_dataset, batch_size=32)
+    # test_loader = DataLoader(dataset)
+    # return train_loader, val_loader, test_loader
+    return train_loader, val_loader, None
 
 
-def load_dataset(directory_path):
+def load_dataset(train_dir, valid_dir):
     transform = transforms.Compose(
         [
             transforms.Resize((64, 64)),
@@ -99,8 +103,13 @@ def load_dataset(directory_path):
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
     )
-    dataset = torchvision.datasets.ImageFolder(root=directory_path, transform=transform)
-    return dataset
+    train_dataset = torchvision.datasets.ImageFolder(
+        root=train_dir, transform=transform
+    )
+    valid_dataset = torchvision.datasets.ImageFolder(
+        root=valid_dir, transform=transform
+    )
+    return train_dataset, valid_dataset
 
 
 def compute_validation_metrics(model, validation_loader):
@@ -185,6 +194,7 @@ def train_model(train_loader, validation_loader, epochs, patience):
             running_loss += loss.item()
 
             print(epoch, running_loss / len(train_loader), best_loss, i)
+
         # train_metrics_history["loss"].append(running_loss / len(train_loader))
         # update_train_metrics_history(
         #     outputs, running_loss, train_loader, train_metrics_history
@@ -193,6 +203,9 @@ def train_model(train_loader, validation_loader, epochs, patience):
         update_validation_metrics_history(
             model, validation_loader, validation_metrics_history
         )
+        print(f"Validation Loss: {validation_metrics_history['loss'][-1]}")
+        print(f"Validation F1 Score: {validation_metrics_history['f1_score'][-1]}")
+        print(f"Validation Accuracy: {validation_metrics_history['accuracy'][-1]}")
         state_dict = model.state_dict()
         stop, best_loss, counter = early_stopping(
             state_dict,
@@ -231,7 +244,12 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Train and evaluate a CNN on leaf images."
     )
-    parser.add_argument("data_dir", type=str, help="Directory path to the dataset.")
+    parser.add_argument(
+        "train_dir", type=str, help="Directory path to the train dataset."
+    )
+    parser.add_argument(
+        "valid_dir", type=str, help="Directory path to the validation dataset."
+    )
     parser.add_argument(
         "--epochs", type=int, default=100, help="Number of training epochs."
     )
@@ -255,18 +273,26 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    if not os.path.exists(args.data_dir):
-        print(f"Data directory does not exist: {args.data_dir}")
+    if not os.path.exists(args.train_dir):
+        print(f"Train directory does not exist: {args.train_dir}")
         sys.exit(1)
-    if not os.path.isdir(args.data_dir):
-        print(f"Data directory is not a valid directory: {args.data_dir}")
+    if not os.path.isdir(args.train_dir):
+        print(f"Train directory is not a valid directory: {args.train_dir}")
+        sys.exit(1)
+    if not os.path.exists(args.valid_dir):
+        print(f"Validation directory does not exist: {args.valid_dir}")
+        sys.exit(1)
+    if not os.path.isdir(args.valid_dir):
+        print(f"Validation directory is not a valid directory: {args.valid_dir}")
         sys.exit(1)
     if args.mode == "test" and not args.model_path:
         print("Model path must be provided for test mode.")
         sys.exit(1)
 
-    dataset = load_dataset(args.data_dir)
-    train_loader, val_loader, test_loader = create_dataloaders(dataset)
+    train_dataset, valid_dataset = load_dataset(args.train_dir, args.valid_dir)
+    train_loader, val_loader, test_loader = create_dataloaders(
+        train_dataset, valid_dataset
+    )
 
     if args.mode == "train":
         validation_history, train_history = train_model(
