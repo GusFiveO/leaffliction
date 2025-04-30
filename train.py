@@ -88,8 +88,8 @@ def create_dataloaders(train_dataset, valid_dataset):
     # train_loader = DataLoader(dataset, batch_size=32, sampler=train_sampler)
     # val_loader = DataLoader(dataset, batch_size=32, sampler=val_sampler)
     # test_loader = DataLoader(dataset, sampler=test_sampler)
-    train_loader = DataLoader(train_dataset, batch_size=32)
-    val_loader = DataLoader(valid_dataset, batch_size=32)
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    val_loader = DataLoader(valid_dataset, batch_size=32, shuffle=True)
     # test_loader = DataLoader(dataset)
     # return train_loader, val_loader, test_loader
     return train_loader, val_loader, None
@@ -293,6 +293,10 @@ if __name__ == "__main__":
     train_loader, val_loader, test_loader = create_dataloaders(
         train_dataset, valid_dataset
     )
+    print(val_loader.dataset)
+    print(train_loader.dataset)
+    print(valid_dataset.samples)
+    # exit(0)
 
     if args.mode == "train":
         validation_history, train_history = train_model(
