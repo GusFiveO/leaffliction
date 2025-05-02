@@ -1,9 +1,7 @@
-import matplotlib
 import argparse
 
 # matplotlib.use("GTK3Agg")
 import matplotlib.pyplot as plt
-import pandas as pd
 import os
 import sys
 
