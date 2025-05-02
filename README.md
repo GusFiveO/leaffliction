@@ -19,6 +19,8 @@ This project implements a Convolutional Neural Network (CNN) to predict leaf dis
    - [Making Predictions](#making-predictions)
    - [Visualizations](#visualizations)
 3. [Results](#results)
+   - [Train and Validation metrics](#train-and-validation-metrics)
+   - [Train output](#train-output)
    - [Test Metrics](#test-metrics)
    - [Confusion Matrix](#confusion-matrix)
 4. [Visualizations](#visualizations)
@@ -74,7 +76,7 @@ Image preprocessing is performed using the `Transformation.py` script, which inc
 
 ### Data Augmentation
 
-Data augmentation is performed using the `augment_dataset.py` script, which applies random augmentations to the images to increase dataset diversity. The augmentations include rotation, cropping, brightness and contrast adjustment, perspective transformation, and blurring.
+Data augmentation is performed using the `Augmentation.py` script, which applies random augmentations to the images to increase dataset diversity. The augmentations include rotation, cropping, brightness and contrast adjustment, perspective transformation, and blurring.
 
 ## Usage
 
@@ -88,24 +90,19 @@ pip install -r requirements.txt
 
 ### Augmenting the Dataset
 
-To augment one image, use the following command:
+To augment one image, or balance the dataset:
 
 ```bash
-python Augmentation.py <file_path> <dst>
+python Augmentation.py <src>
 ```
 
-To augment a whole dataset, use the following command:
-
-```bash
-python augment_dataset.py <original_dir> <augmented_dir>
-```
 
 ### Training the Model
 
 To train the model, use the following command:
 
 ```bash
-python train.py <data_dir> --epochs 100 --patience 10 --mode train
+python train.py <data_dir> --epochs 100 --patience 10
 ```
 
 ### Making Predictions
@@ -136,9 +133,18 @@ python Distribution.py <directory_path>
 
 ![Augmentation](screenshots/LEAFFLICTION-augmentation.png)
 
+### Train and Validation metrics
+
+![Train and Validation metrics](screenshots/LEAFFLICTION-train-valid-metrics.png)
+
+
+### Train output
+
+![Train output](screenshots/LEAFFLICTION-train-output.png)
+
 ### Test Metrics
 
-![Test Metrics](screenshots/LEAFFLICTION-output.png)
+![Test Metrics](screenshots/LEAFFLICTION-test-output.png)
 
 ### Confusion Matrix
 

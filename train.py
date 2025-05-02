@@ -53,13 +53,18 @@ def imshow(img):
     plt.show()
 
 
-def create_dataloaders(train_dataset, valid_dataset):
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    val_loader = DataLoader(valid_dataset, batch_size=32, shuffle=True)
-    return train_loader, val_loader, None
+def create_dataloader(dataset, batch_size=32, shuffle=True):
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    return loader
 
 
-def load_dataset(train_dir, valid_dir):
+# def create_dataloaders(train_dataset, valid_dataset):
+#     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+#     val_loader = DataLoader(valid_dataset, batch_size=32, shuffle=True)
+#     return train_loader, val_loader, None
+
+
+def load_dataset(dir):
     transform = transforms.Compose(
         [
             transforms.Resize((64, 64)),
@@ -67,13 +72,25 @@ def load_dataset(train_dir, valid_dir):
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
     )
-    train_dataset = torchvision.datasets.ImageFolder(
-        root=train_dir, transform=transform
-    )
-    valid_dataset = torchvision.datasets.ImageFolder(
-        root=valid_dir, transform=transform
-    )
-    return train_dataset, valid_dataset
+    dataset = torchvision.datasets.ImageFolder(root=dir, transform=transform)
+    return dataset
+
+
+# def load_dataset(train_dir, valid_dir):
+#     transform = transforms.Compose(
+#         [
+#             transforms.Resize((64, 64)),
+#             transforms.ToTensor(),
+#             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+#         ]
+#     )
+#     train_dataset = torchvision.datasets.ImageFolder(
+#         root=train_dir, transform=transform
+#     )
+#     valid_dataset = torchvision.datasets.ImageFolder(
+#         root=valid_dir, transform=transform
+#     )
+#     return train_dataset, valid_dataset
 
 
 def compute_validation_metrics(model, validation_loader):
@@ -106,6 +123,7 @@ def update_metrics_history(model, validation_loader, validation_metrics_history)
 
 
 def early_stopping(
+    model_path,
     state_dict,
     validation_accuracy,
     epoch,
@@ -125,7 +143,7 @@ def early_stopping(
     else:
         counter += 1
         if counter >= patience:
-            torch.save(state_dict, "best_model.pth")
+            torch.save(state_dict, model_path)
             return True, best_accuracy, best_epoch, counter
     return False, best_accuracy, best_epoch, counter
 
@@ -165,7 +183,7 @@ def plot_metrics(validation_metrics_history, train_metrics_history, class_names)
     plt.show()
 
 
-def train_model(train_loader, validation_loader, epochs, patience):
+def train_model(train_loader, validation_loader, epochs, patience, model_path):
     model = LeafCNN()
     criterion = nn.CrossEntropyLoss()
     best_accuracy = None
@@ -191,6 +209,7 @@ def train_model(train_loader, validation_loader, epochs, patience):
         log_metrics(validation_metrics_history, train_metrics_history)
         state_dict = model.state_dict()
         stop, best_accuracy, best_epoch, counter = early_stopping(
+            model_path,
             state_dict,
             validation_metrics_history["accuracy"][-1],
             epoch,
@@ -205,7 +224,7 @@ def train_model(train_loader, validation_loader, epochs, patience):
             )
             return validation_metrics_history, train_metrics_history
     print(f"Early stopping at epoch {best_epoch} with best accuracy {best_accuracy}")
-    torch.save(model.state_dict(), "best_model.pth")
+    torch.save(model.state_dict(), model_path)
     return validation_metrics_history, train_metrics_history
 
 
@@ -246,14 +265,15 @@ def parse_args():
         "--patience", type=int, default=10, help="Early stopping patience."
     )
     parser.add_argument(
-        "--test",
-        type=bool,
-        default=False,
+        "--test-dir",
+        type=str,
+        default=None,
         help="Set to True to run the test mode.",
     )
     parser.add_argument(
         "--model_path",
         type=str,
+        default="best_model.pth",
         help="Path to the trained model file (required for test mode).",
     )
     return parser.parse_args()
@@ -273,21 +293,26 @@ if __name__ == "__main__":
     if not os.path.isdir(args.valid_dir):
         print(f"Validation directory is not a valid directory: {args.valid_dir}")
         sys.exit(1)
-    if args.test and not args.model_path:
+    if args.test_dir and not args.model_path:
         print("Model path must be provided for test mode.")
         sys.exit(1)
 
-    train_dataset, valid_dataset = load_dataset(args.train_dir, args.valid_dir)
-    train_loader, val_loader, test_loader = create_dataloaders(
-        train_dataset, valid_dataset
-    )
+    train_dataset = load_dataset(args.train_dir)
+    valid_dataset = load_dataset(args.valid_dir)
+    train_loader = create_dataloader(train_dataset)
+    val_loader = create_dataloader(valid_dataset, shuffle=False)
+    # train_loader, val_loader, test_loader = create_dataloaders(
+    #     train_dataset, valid_dataset
+    # )
 
-    validation_history, train_history = train_model(
-        train_loader, val_loader, args.epochs, args.patience
-    )
-    plot_metrics(validation_history, train_history, train_dataset.classes)
+    # validation_history, train_history = train_model(
+    #     train_loader, val_loader, args.epochs, args.patience, args.model_path
+    # )
+    # plot_metrics(validation_history, train_history, train_dataset.classes)
 
-    if args.test:
+    if args.test_dir:
+        test_dataset = load_dataset(args.test_dir)
+        test_loader = create_dataloader(test_dataset, shuffle=False)
         model = LeafCNN()
         model.load_state_dict(torch.load(args.model_path))
         evaluate_model(model, test_loader, train_dataset.classes)
