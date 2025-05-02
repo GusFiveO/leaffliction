@@ -5,6 +5,8 @@ from sklearn.model_selection import train_test_split
 import argparse
 import os
 
+from tqdm import tqdm
+
 
 def load_dataset(directory_path):
     transform = transforms.Compose(
@@ -45,7 +47,6 @@ def split_dataset(
 
     dataset = load_dataset(original_dir)
     print(f"Loaded dataset with {len(dataset)} images from {original_dir}")
-    print(f"Dataset classes: {dataset.classes}")
     labels = dataset.targets
     train_indices, temp_indices, _, temp_labels = train_test_split(
         np.arange(len(dataset)),
@@ -72,7 +73,7 @@ def save_dataset(dataset, indices, directory):
     Saves the dataset to a directory
     """
     os.makedirs(directory, exist_ok=True)
-    for index in indices:
+    for index in tqdm(indices, desc=f"Saving {directory}"):
         image, label = dataset[index]
         label_dir = os.path.join(directory, dataset.classes[label])
         os.makedirs(label_dir, exist_ok=True)

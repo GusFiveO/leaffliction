@@ -175,14 +175,6 @@ def save_image(img_array, name, dst):
     print(f"SAVED: {new_image_path}")
 
 
-def save_transformation(img, transformation_name, original_name, dst_dir):
-    if dst_dir is None:
-        return
-    basename, ext = original_name.split(".", 1)
-    new_image_name = f"{basename}_{transformation_name}.{ext}"
-    save_image(img, new_image_name, dst_dir)
-
-
 def plot_image_transformations(img, transformations):
 
     # Plot the transformations
@@ -239,8 +231,8 @@ def transform(file_path):
     transformations["original"] = img
     transformations["grayscale"] = convert_to_grayscale(img)
     transformations["blurred"] = apply_gaussian_blur(transformations["grayscale"])
-    transformations["mask"] = create_mask(transformations["grayscale"])
-    # transformation["mask"] = create_mask(transformation["blurred"])
+    # transformations["mask"] = create_mask(transformations["grayscale"])
+    transformations["mask"] = create_mask(transformations["blurred"])
     transformations["masked"] = apply_mask(img, transformations["mask"])
     transformations["analyze"] = analyze(img, transformations["mask"])
     transformations["landmarks"] = apply_landmarks(img, transformations["mask"])
@@ -274,11 +266,16 @@ if __name__ == "__main__":
         plot_transformations(img, transformations)
 
     elif os.path.isdir(args.src):
+        if not args.dst:
+            print("Destination directory is required for directory input.")
+            sys.exit(1)
+        if not os.path.isdir(args.dst):
+            print(f"Destination is not a valid directory: {args.dst}")
+            sys.exit(1)
         for root, _, files in os.walk(args.src):
             for file in files:
                 if file.lower().endswith((".jpg", ".jpeg", ".png")):
                     file_path = os.path.join(root, file)
-                    # transform(file_path)
                     img, _, name, transformations = transform(file_path)
                     save_transformations(transformations, name, args.dst)
     else:
