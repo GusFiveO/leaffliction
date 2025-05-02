@@ -1,4 +1,5 @@
 import argparse
+from tqdm import tqdm
 import sys
 import os
 import torch
@@ -7,9 +8,8 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import DataLoader, SubsetRandomSampler
+from torch.utils.data import DataLoader
 import numpy as np
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     confusion_matrix,
     ConfusionMatrixDisplay,
@@ -19,9 +19,6 @@ import matplotlib.pyplot as plt
 from torcheval.metrics import (
     MulticlassAccuracy,
     MulticlassF1Score,
-    MulticlassRecall,
-    MulticlassPrecision,
-    MulticlassConfusionMatrix,
 )
 
 
@@ -57,41 +54,8 @@ def imshow(img):
 
 
 def create_dataloaders(train_dataset, valid_dataset):
-    # data_loader = DataLoader(dataset, shuffle=True)
-    # dataiter = iter(data_loader)
-    # images, labels = next(dataiter)
-    # labels = np.array([dataset.targets[i] for i in range(len(dataset))])
-
-    # train_size = 0.7
-    # val_size = 0.15
-    # test_size = 0.15
-
-    # train_indices, temp_indices, _, temp_labels = train_test_split(
-    #     np.arange(len(dataset)),
-    #     labels,
-    #     stratify=labels,
-    #     test_size=(1 - train_size),
-    #     random_state=42,
-    # )
-
-    # val_indices, test_indices = train_test_split(
-    #     temp_indices,
-    #     stratify=temp_labels,
-    #     test_size=(test_size / (test_size + val_size)),
-    #     random_state=42,
-    # )
-
-    # train_sampler = SubsetRandomSampler(train_indices)
-    # val_sampler = SubsetRandomSampler(val_indices)
-    # test_sampler = SubsetRandomSampler(test_indices)
-
-    # train_loader = DataLoader(dataset, batch_size=32, sampler=train_sampler)
-    # val_loader = DataLoader(dataset, batch_size=32, sampler=val_sampler)
-    # test_loader = DataLoader(dataset, sampler=test_sampler)
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     val_loader = DataLoader(valid_dataset, batch_size=32, shuffle=True)
-    # test_loader = DataLoader(dataset)
-    # return train_loader, val_loader, test_loader
     return train_loader, val_loader, None
 
 
@@ -135,56 +99,84 @@ def compute_validation_metrics(model, validation_loader):
     return validation_metrics
 
 
-def update_validation_metrics_history(
-    model, validation_loader, validation_metrics_history
-):
+def update_metrics_history(model, validation_loader, validation_metrics_history):
     new_validation_metrics = compute_validation_metrics(model, validation_loader)
     for name, value in new_validation_metrics.items():
         validation_metrics_history[name].append(value)
 
 
-def update_train_metrics_history(outputs, loss, train_loader, train_metrics_history):
-    _, predicted = torch.max(outputs, 1)
-    accuracy = MulticlassAccuracy(num_classes=4)
-    f1_score = MulticlassF1Score(num_classes=4, average="macro")
-
-    for inputs, labels in train_loader:
-        accuracy.update(predicted, labels)
-        f1_score.update(predicted, labels)
-
-    train_metrics_history["accuracy"].append(accuracy.compute())
-    train_metrics_history["f1_score"].append(f1_score.compute())
-    train_metrics_history["loss"].append(loss / len(train_loader))
-    return train_metrics_history
-
-
 def early_stopping(
-    state_dict, validation_loss, best_loss=None, counter=0, patience=5, min_delta=0
+    state_dict,
+    validation_accuracy,
+    epoch,
+    best_accuracy=None,
+    best_epoch=None,
+    counter=0,
+    patience=5,
+    min_delta=0,
 ):
-    if best_loss is None:
-        best_loss = validation_loss
-    elif validation_loss < best_loss - min_delta:
-        best_loss = validation_loss
+    if best_accuracy is None:
+        best_epoch = epoch
+        best_accuracy = validation_accuracy
+    elif validation_accuracy > best_accuracy - min_delta:
+        best_epoch = epoch
+        best_accuracy = validation_accuracy
         counter = 0
     else:
         counter += 1
         if counter >= patience:
             torch.save(state_dict, "best_model.pth")
-            return True, best_loss, counter
-    return False, best_loss, counter
+            return True, best_accuracy, best_epoch, counter
+    return False, best_accuracy, best_epoch, counter
+
+
+def log_metrics(validation_metrics_history, train_metrics_history):
+    print(f"Training Loss: {train_metrics_history['loss'][-1]}")
+    print(f"Validation Loss: {validation_metrics_history['loss'][-1]}")
+    print(f"Validation F1 Score: {validation_metrics_history['f1_score'][-1]}")
+    print(f"Validation Accuracy: {validation_metrics_history['accuracy'][-1]}")
+
+
+def plot_metrics(validation_metrics_history, train_metrics_history, class_names):
+    fig, axs = plt.subplots(3, 1, figsize=(10, 10))
+    axs[0].plot(validation_history["loss"], label="Validation Loss", color="blue")
+    axs[0].plot(train_history["loss"], label="Training Loss", color="green")
+    axs[1].plot(
+        validation_history["f1_score"], label="Validation F1 Score", color="orange"
+    )
+    axs[1].plot(train_history["f1_score"], label="Training F1 Score", color="red")
+    axs[2].plot(
+        validation_history["accuracy"], label="Validation Accuracy", color="purple"
+    )
+    axs[2].plot(train_history["accuracy"], label="Training Accuracy", color="brown")
+    axs[0].set_title("Loss")
+    axs[1].set_title("Validation F1 Score")
+    axs[2].set_title("Accuracy")
+    axs[0].set_xlabel("Epochs")
+    axs[1].set_xlabel("Epochs")
+    axs[2].set_xlabel("Epochs")
+    axs[0].set_ylabel("Loss")
+    axs[1].set_ylabel("F1 Score")
+    axs[2].set_ylabel("Accuracy")
+    axs[0].legend()
+    axs[1].legend()
+    axs[2].legend()
+    plt.tight_layout()
+    plt.show()
 
 
 def train_model(train_loader, validation_loader, epochs, patience):
     model = LeafCNN()
     criterion = nn.CrossEntropyLoss()
-    best_loss = None
+    best_accuracy = None
+    best_epoch = None
     counter = 0
     optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.001)
     validation_metrics_history = {"f1_score": [], "loss": [], "accuracy": []}
     train_metrics_history = {"f1_score": [], "loss": [], "accuracy": []}
-    for epoch in range(epochs):
+    for epoch in range(1, epochs + 1):
         running_loss = 0.0
-        for i, data in enumerate(train_loader, 0):
+        for i, data in enumerate(tqdm(train_loader, desc=f"epoch {epoch}/{epochs}"), 0):
             inputs, labels = data
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -192,30 +184,27 @@ def train_model(train_loader, validation_loader, epochs, patience):
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
+            # print(epoch, running_loss / len(train_loader), best_loss, i)
 
-            print(epoch, running_loss / len(train_loader), best_loss, i)
-
-        # train_metrics_history["loss"].append(running_loss / len(train_loader))
-        # update_train_metrics_history(
-        #     outputs, running_loss, train_loader, train_metrics_history
-        # )
-        update_validation_metrics_history(model, train_loader, train_metrics_history)
-        update_validation_metrics_history(
-            model, validation_loader, validation_metrics_history
-        )
-        print(f"Validation Loss: {validation_metrics_history['loss'][-1]}")
-        print(f"Validation F1 Score: {validation_metrics_history['f1_score'][-1]}")
-        print(f"Validation Accuracy: {validation_metrics_history['accuracy'][-1]}")
+        update_metrics_history(model, train_loader, train_metrics_history)
+        update_metrics_history(model, validation_loader, validation_metrics_history)
+        log_metrics(validation_metrics_history, train_metrics_history)
         state_dict = model.state_dict()
-        stop, best_loss, counter = early_stopping(
+        stop, best_accuracy, best_epoch, counter = early_stopping(
             state_dict,
-            validation_metrics_history["loss"][-1],
-            best_loss=best_loss,
+            validation_metrics_history["accuracy"][-1],
+            epoch,
+            best_accuracy=best_accuracy,
+            best_epoch=best_epoch,
             counter=counter,
             patience=patience,
         )
         if stop:
+            print(
+                f"Early stopping at epoch {best_epoch} with best accuracy {best_accuracy}"
+            )
             return validation_metrics_history, train_metrics_history
+    print(f"Early stopping at epoch {best_epoch} with best accuracy {best_accuracy}")
     torch.save(model.state_dict(), "best_model.pth")
     return validation_metrics_history, train_metrics_history
 
@@ -257,11 +246,10 @@ def parse_args():
         "--patience", type=int, default=10, help="Early stopping patience."
     )
     parser.add_argument(
-        "--mode",
-        type=str,
-        choices=["train", "test"],
-        required=True,
-        help="Mode: train or test.",
+        "--test",
+        type=bool,
+        default=False,
+        help="Set to True to run the test mode.",
     )
     parser.add_argument(
         "--model_path",
@@ -285,7 +273,7 @@ if __name__ == "__main__":
     if not os.path.isdir(args.valid_dir):
         print(f"Validation directory is not a valid directory: {args.valid_dir}")
         sys.exit(1)
-    if args.mode == "test" and not args.model_path:
+    if args.test and not args.model_path:
         print("Model path must be provided for test mode.")
         sys.exit(1)
 
@@ -293,43 +281,13 @@ if __name__ == "__main__":
     train_loader, val_loader, test_loader = create_dataloaders(
         train_dataset, valid_dataset
     )
-    print(val_loader.dataset)
-    print(train_loader.dataset)
-    print(valid_dataset.samples)
-    # exit(0)
 
-    if args.mode == "train":
-        validation_history, train_history = train_model(
-            train_loader, val_loader, args.epochs, args.patience
-        )
-        fig, axs = plt.subplots(3, 1, figsize=(10, 10))
-        axs[0].plot(validation_history["loss"], label="Validation Loss", color="blue")
-        axs[0].plot(train_history["loss"], label="Training Loss", color="green")
-        axs[1].plot(
-            validation_history["f1_score"], label="Validation F1 Score", color="orange"
-        )
-        axs[1].plot(train_history["f1_score"], label="Training F1 Score", color="red")
-        axs[2].plot(
-            validation_history["accuracy"], label="Validation Accuracy", color="purple"
-        )
-        axs[2].plot(train_history["accuracy"], label="Training Accuracy", color="brown")
-        axs[0].set_title("Loss")
-        axs[1].set_title("Validation F1 Score")
-        axs[2].set_title("Accuracy")
-        axs[0].set_xlabel("Epochs")
-        axs[1].set_xlabel("Epochs")
-        axs[2].set_xlabel("Epochs")
-        axs[0].set_ylabel("Loss")
-        axs[1].set_ylabel("F1 Score")
-        axs[2].set_ylabel("Accuracy")
-        axs[0].legend()
-        axs[1].legend()
-        axs[2].legend()
-        print(validation_history)
-        print(train_history)
-        plt.tight_layout()
-        plt.show()
-    elif args.mode == "test":
+    validation_history, train_history = train_model(
+        train_loader, val_loader, args.epochs, args.patience
+    )
+    plot_metrics(validation_history, train_history, train_dataset.classes)
+
+    if args.test:
         model = LeafCNN()
         model.load_state_dict(torch.load(args.model_path))
-        evaluate_model(model, test_loader, dataset.classes)
+        evaluate_model(model, test_loader, train_dataset.classes)
