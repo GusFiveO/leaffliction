@@ -58,12 +58,6 @@ def create_dataloader(dataset, batch_size=32, shuffle=True):
     return loader
 
 
-# def create_dataloaders(train_dataset, valid_dataset):
-#     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-#     val_loader = DataLoader(valid_dataset, batch_size=32, shuffle=True)
-#     return train_loader, val_loader, None
-
-
 def load_dataset(dir):
     transform = transforms.Compose(
         [
@@ -74,23 +68,6 @@ def load_dataset(dir):
     )
     dataset = torchvision.datasets.ImageFolder(root=dir, transform=transform)
     return dataset
-
-
-# def load_dataset(train_dir, valid_dir):
-#     transform = transforms.Compose(
-#         [
-#             transforms.Resize((64, 64)),
-#             transforms.ToTensor(),
-#             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-#         ]
-#     )
-#     train_dataset = torchvision.datasets.ImageFolder(
-#         root=train_dir, transform=transform
-#     )
-#     valid_dataset = torchvision.datasets.ImageFolder(
-#         root=valid_dir, transform=transform
-#     )
-#     return train_dataset, valid_dataset
 
 
 def compute_validation_metrics(model, validation_loader):
@@ -155,7 +132,7 @@ def log_metrics(validation_metrics_history, train_metrics_history):
     print(f"Validation Accuracy: {validation_metrics_history['accuracy'][-1]}")
 
 
-def plot_metrics(validation_metrics_history, train_metrics_history, class_names):
+def plot_metrics(validation_history, train_history):
     fig, axs = plt.subplots(3, 1, figsize=(10, 10))
     axs[0].plot(validation_history["loss"], label="Validation Loss", color="blue")
     axs[0].plot(train_history["loss"], label="Training Loss", color="green")
@@ -223,7 +200,6 @@ def train_model(train_loader, validation_loader, epochs, patience, model_path):
                 f"Early stopping at epoch {best_epoch} with best accuracy {best_accuracy}"
             )
             return validation_metrics_history, train_metrics_history
-    print(f"Early stopping at epoch {best_epoch} with best accuracy {best_accuracy}")
     torch.save(model.state_dict(), model_path)
     return validation_metrics_history, train_metrics_history
 
@@ -301,14 +277,10 @@ if __name__ == "__main__":
     valid_dataset = load_dataset(args.valid_dir)
     train_loader = create_dataloader(train_dataset)
     val_loader = create_dataloader(valid_dataset, shuffle=False)
-    # train_loader, val_loader, test_loader = create_dataloaders(
-    #     train_dataset, valid_dataset
-    # )
-
-    # validation_history, train_history = train_model(
-    #     train_loader, val_loader, args.epochs, args.patience, args.model_path
-    # )
-    # plot_metrics(validation_history, train_history, train_dataset.classes)
+    validation_history, train_history = train_model(
+        train_loader, val_loader, args.epochs, args.patience, args.model_path
+    )
+    plot_metrics(validation_history, train_history)
 
     if args.test_dir:
         test_dataset = load_dataset(args.test_dir)
