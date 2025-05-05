@@ -12,6 +12,9 @@ def compute_distribution(directory_path):
     for child in childs:
         files = [child for child in os.scandir(child.path) if child.is_file()]
         nb_files = len(files)
+        if nb_files == 0:
+            print(f"Warning: {child.name} contains no files.")
+            continue
         distrib.append((child.name, nb_files))
     return distrib
 
@@ -19,6 +22,9 @@ def compute_distribution(directory_path):
 def plot_distribution(directory_path):
     basename = os.path.basename(directory_path)
     distrib = compute_distribution(directory_path)
+    if not distrib:
+        print(f"No valid subdirectories found in {directory_path}.")
+        return
     labels, values = zip(*distrib)
 
     colors = [
