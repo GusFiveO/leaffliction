@@ -70,7 +70,9 @@ def apply_landmarks(img, mask):
 
     bottom_landmarks = pcv.outputs.observations["plant"]["bottom_lmk"]["value"]
     top_landmarks = pcv.outputs.observations["plant"]["top_lmk"]["value"]
-    center_landmarks = pcv.outputs.observations["plant"]["center_v_lmk"]["value"]
+    center_landmarks = pcv.outputs.observations["plant"]["center_v_lmk"][
+        "value"
+    ]
 
     img_with_landmarks = img.copy()
 
@@ -86,7 +88,9 @@ def apply_landmarks(img, mask):
     return img_with_landmarks
 
 
-def extract_channel_histograms(img, color_space, channels, bins=50, range=(0, 255)):
+def extract_channel_histograms(
+    img, color_space, channels, bins=50, range=(0, 255)
+):
     histograms = {}
     for ch, name in channels:
         if color_space:
@@ -136,15 +140,27 @@ def plot_color_histogram(img):
     ax = plt.subplot()
     for name, hist_data in rgb_channels.items():
         ax.plot(
-            hist_data[0], hist_data[1], label=name, c=color_channel_map[name], alpha=0.7
+            hist_data[0],
+            hist_data[1],
+            label=name,
+            c=color_channel_map[name],
+            alpha=0.7,
         )
     for name, hist_data in lab_channels.items():
         ax.plot(
-            hist_data[0], hist_data[1], label=name, c=color_channel_map[name], alpha=0.7
+            hist_data[0],
+            hist_data[1],
+            label=name,
+            c=color_channel_map[name],
+            alpha=0.7,
         )
     for name, hist_data in hsv_channels.items():
         ax.plot(
-            hist_data[0], hist_data[1], label=name, c=color_channel_map[name], alpha=0.7
+            hist_data[0],
+            hist_data[1],
+            label=name,
+            c=color_channel_map[name],
+            alpha=0.7,
         )
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
@@ -230,12 +246,16 @@ def transform(file_path):
     # fill the transormation dict with the transfornmations
     transformations["original"] = img
     transformations["grayscale"] = convert_to_grayscale(img)
-    transformations["blurred"] = apply_gaussian_blur(transformations["grayscale"])
+    transformations["blurred"] = apply_gaussian_blur(
+        transformations["grayscale"]
+    )
     # transformations["mask"] = create_mask(transformations["grayscale"])
     transformations["mask"] = create_mask(transformations["blurred"])
     transformations["masked"] = apply_mask(img, transformations["mask"])
     transformations["analyze"] = analyze(img, transformations["mask"])
-    transformations["landmarks"] = apply_landmarks(img, transformations["mask"])
+    transformations["landmarks"] = apply_landmarks(
+        img, transformations["mask"]
+    )
     # Save the transformations
     return img, imgpath, imgname, transformations
 
@@ -252,7 +272,9 @@ def plot_transformations(img, transformations):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Image transformation script")
-    parser.add_argument("-src", type=str, help="Path to the image file or directory")
+    parser.add_argument(
+        "-src", type=str, help="Path to the image file or directory"
+    )
     parser.add_argument(
         "-dst", type=str, help="Destination directory for transformed images"
     )

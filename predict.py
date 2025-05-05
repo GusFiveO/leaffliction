@@ -28,7 +28,9 @@ def evaluate_model(model, test_loader, class_names):
     all_preds = torch.tensor(all_preds)
     all_labels = torch.tensor(all_labels)
 
-    report = classification_report(all_labels, all_preds, target_names=class_names)
+    report = classification_report(
+        all_labels, all_preds, target_names=class_names
+    )
     print(report)
     cm = confusion_matrix(all_labels, all_preds)
     ConfusionMatrixDisplay(cm, display_labels=class_names).plot()
@@ -88,8 +90,12 @@ def plot_image(image, prediction):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Leaf Disease Prediction")
-    parser.add_argument("target", type=str, help="Path to the image file or directory")
-    parser.add_argument("weights_path", type=str, help="Path to the model weights file")
+    parser.add_argument(
+        "target", type=str, help="Path to the image file or directory"
+    )
+    parser.add_argument(
+        "weights_path", type=str, help="Path to the model weights file"
+    )
     parser.add_argument(
         "--type",
         type=str,
@@ -111,7 +117,12 @@ if __name__ == "__main__":
         print(f"Weights file does not exist: {weights_path}")
         sys.exit(1)
 
-    apple_class_names = ["Apple_Black_rot", "Apple_healthy", "Apple_rust", "Apple_scab"]
+    apple_class_names = [
+        "Apple_Black_rot",
+        "Apple_healthy",
+        "Apple_rust",
+        "Apple_scab",
+    ]
     graple_class_names = [
         "Grape_black_rot",
         "Grape_Esca",

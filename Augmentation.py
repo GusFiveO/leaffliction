@@ -30,7 +30,9 @@ def file_augmentation(file_path):
         augmented_image = transform(image)
         axes[i + 1].imshow(augmented_image)
         axes[i + 1].set_title(transform_name)
-        output_path = os.path.join(dst_path, f"{basename}_{transform_name}.JPG")
+        output_path = os.path.join(
+            dst_path, f"{basename}_{transform_name}.JPG"
+        )
         print(f"Augmented {output_path}")
         augmented_image.save(output_path)
 
@@ -84,7 +86,9 @@ def folder_augmentation(src):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Augmentation script")
-    parser.add_argument("src", type=str, help="Path to the source directory or image")
+    parser.add_argument(
+        "src", type=str, help="Path to the source directory or image"
+    )
     return parser.parse_args()
 
 

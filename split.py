@@ -16,7 +16,9 @@ def load_dataset(directory_path):
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
     )
-    dataset = torchvision.datasets.ImageFolder(root=directory_path, transform=transform)
+    dataset = torchvision.datasets.ImageFolder(
+        root=directory_path, transform=transform
+    )
     return dataset
 
 
@@ -29,7 +31,8 @@ def check_split(targets, indices):
         label_indices = np.where(targets == label)[0]
         selected_indices = np.isin(label_indices, indices)
         print(
-            f"Label {label}: {len(label_indices)} in total, {np.sum(selected_indices)} selected"
+            f"Label {label}: {len(label_indices)} \
+in total, {np.sum(selected_indices)} selected"
         )
         print(f"Ratio: {np.sum(selected_indices) / len(label_indices)}")
         if len(label_indices) != len(selected_indices):
@@ -77,7 +80,9 @@ def save_dataset(dataset, indices, directory):
         image, label = dataset[index]
         label_dir = os.path.join(directory, dataset.classes[label])
         os.makedirs(label_dir, exist_ok=True)
-        torchvision.utils.save_image(image, os.path.join(label_dir, f"{index}.png"))
+        torchvision.utils.save_image(
+            image, os.path.join(label_dir, f"{index}.png")
+        )
 
 
 def parse_args():

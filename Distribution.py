@@ -21,11 +21,18 @@ def plot_distribution(directory_path):
     distrib = compute_distribution(directory_path)
     labels, values = zip(*distrib)
 
-    colors = ["#1f77b4", "#2ca02c", "#d62728", "#ff7f0e"]  # Blue, Green, Red, Orange
+    colors = [
+        "#1f77b4",
+        "#2ca02c",
+        "#d62728",
+        "#ff7f0e",
+    ]  # Blue, Green, Red, Orange
 
     fig, axs = plt.subplots(2, figsize=(8, 10))
 
-    axs[0].pie(values, labels=labels, autopct="%1.0f%%", colors=colors, startangle=90)
+    axs[0].pie(
+        values, labels=labels, autopct="%1.0f%%", colors=colors, startangle=90
+    )
 
     axs[1].bar(labels, values, color=colors)
 
@@ -36,7 +43,9 @@ def plot_distribution(directory_path):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Distribution script")
-    parser.add_argument("directory_path", type=str, help="Path to the directory")
+    parser.add_argument(
+        "directory_path", type=str, help="Path to the directory"
+    )
     return parser.parse_args()
 
 

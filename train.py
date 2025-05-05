@@ -6,7 +6,6 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import numpy as np
@@ -70,8 +69,12 @@ def compute_validation_metrics(model, validation_loader):
     return validation_metrics
 
 
-def update_metrics_history(model, validation_loader, validation_metrics_history):
-    new_validation_metrics = compute_validation_metrics(model, validation_loader)
+def update_metrics_history(
+    model, validation_loader, validation_metrics_history
+):
+    new_validation_metrics = compute_validation_metrics(
+        model, validation_loader
+    )
     for name, value in new_validation_metrics.items():
         validation_metrics_history[name].append(value)
 
@@ -111,16 +114,26 @@ def log_metrics(validation_metrics_history, train_metrics_history):
 
 def plot_metrics(validation_history, train_history):
     fig, axs = plt.subplots(3, 1, figsize=(10, 10))
-    axs[0].plot(validation_history["loss"], label="Validation Loss", color="blue")
+    axs[0].plot(
+        validation_history["loss"], label="Validation Loss", color="blue"
+    )
     axs[0].plot(train_history["loss"], label="Training Loss", color="green")
     axs[1].plot(
-        validation_history["f1_score"], label="Validation F1 Score", color="orange"
+        validation_history["f1_score"],
+        label="Validation F1 Score",
+        color="orange",
     )
-    axs[1].plot(train_history["f1_score"], label="Training F1 Score", color="red")
+    axs[1].plot(
+        train_history["f1_score"], label="Training F1 Score", color="red"
+    )
     axs[2].plot(
-        validation_history["accuracy"], label="Validation Accuracy", color="purple"
+        validation_history["accuracy"],
+        label="Validation Accuracy",
+        color="purple",
     )
-    axs[2].plot(train_history["accuracy"], label="Training Accuracy", color="brown")
+    axs[2].plot(
+        train_history["accuracy"], label="Training Accuracy", color="brown"
+    )
     axs[0].set_title("Loss")
     axs[1].set_title("Validation F1 Score")
     axs[2].set_title("Accuracy")
@@ -148,7 +161,9 @@ def train_model(train_loader, validation_loader, epochs, patience, model_path):
     train_metrics_history = {"f1_score": [], "loss": [], "accuracy": []}
     for epoch in range(1, epochs + 1):
         running_loss = 0.0
-        for i, data in enumerate(tqdm(train_loader, desc=f"epoch {epoch}/{epochs}"), 0):
+        for i, data in enumerate(
+            tqdm(train_loader, desc=f"epoch {epoch}/{epochs}"), 0
+        ):
             inputs, labels = data
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -159,7 +174,9 @@ def train_model(train_loader, validation_loader, epochs, patience, model_path):
             # print(epoch, running_loss / len(train_loader), best_loss, i)
 
         update_metrics_history(model, train_loader, train_metrics_history)
-        update_metrics_history(model, validation_loader, validation_metrics_history)
+        update_metrics_history(
+            model, validation_loader, validation_metrics_history
+        )
         log_metrics(validation_metrics_history, train_metrics_history)
         state_dict = model.state_dict()
         stop, best_accuracy, best_epoch, counter = early_stopping(
@@ -174,7 +191,8 @@ def train_model(train_loader, validation_loader, epochs, patience, model_path):
         )
         if stop:
             print(
-                f"Early stopping at epoch {best_epoch} with best accuracy {best_accuracy}"
+                f"Early stopping at epoch {best_epoch} \
+with best accuracy {best_accuracy}"
             )
             return validation_metrics_history, train_metrics_history
     torch.save(model.state_dict(), model_path)
@@ -194,7 +212,9 @@ def evaluate_model(model, test_loader, class_names):
     all_preds = torch.tensor(all_preds)
     all_labels = torch.tensor(all_labels)
 
-    report = classification_report(all_labels, all_preds, target_names=class_names)
+    report = classification_report(
+        all_labels, all_preds, target_names=class_names
+    )
     print(report)
     cm = confusion_matrix(all_labels, all_preds)
     ConfusionMatrixDisplay(cm, display_labels=class_names).plot()
@@ -244,7 +264,9 @@ if __name__ == "__main__":
         print(f"Validation directory does not exist: {args.valid_dir}")
         sys.exit(1)
     if not os.path.isdir(args.valid_dir):
-        print(f"Validation directory is not a valid directory: {args.valid_dir}")
+        print(
+            f"Validation directory is not a valid directory: {args.valid_dir}"
+        )
         sys.exit(1)
     if args.test_dir and not args.model_path:
         print("Model path must be provided for test mode.")
