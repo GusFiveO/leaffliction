@@ -24,9 +24,11 @@ color_channel_map = {
 
 
 def convert_to_grayscale(img):
-    # gray = pcv.rgb2gray_lab(img, "a")
+    gray = pcv.rgb2gray_lab(img, "a")
     # gray = pcv.rgb2gray_lab(img, "b")
-    gray = pcv.rgb2gray_cmyk(img, "c")
+    # gray = pcv.rgb2gray_hsv(img, "s")
+    # gray = pcv.rgb2gray_lab(img, "l")
+    # gray = pcv.rgb2gray_cmyk(img, "c")
     print(gray)
     return gray
 
@@ -36,14 +38,19 @@ def apply_gaussian_blur(gray, ksize=11):
     return blurred
 
 
-def create_mask(gray, threshold=125):
+def create_mask(gray, threshold=50):
     # binary = pcv.threshold.gaussian(
-    binary = pcv.threshold.mean(
-        # gray_img=gray, ksize=2500, offset=5, object_type="dark"
+    # binary = pcv.threshold.mean(
+    #     # gray_img=gray, ksize=2500, offset=5, object_type="dark"
+    #     gray_img=gray,
+    #     ksize=300,
+    #     offset=5,
+    #     object_type="light",
+    # )
+    # binary = pcv.threshold.binary(gray_img=gray, threshold=threshold)
+    binary = pcv.threshold.triangle(
         gray_img=gray,
-        ksize=300,
-        offset=5,
-        object_type="light",
+        object_type="dark",
     )
     binary = pcv.erode(binary, ksize=5, i=1)
     binary = pcv.fill(binary, size=200)
@@ -261,10 +268,9 @@ def transform(file_path):
     transformations["mask"] = create_mask(transformations["blurred"])
     transformations["masked"] = apply_mask(img, transformations["mask"])
     transformations["analyze"] = analyze(img, transformations["mask"])
-    # transformations["landmarks"] = apply_landmarks(
-    #     img, transformations["mask"]
-    # )
-    transformations["landmarks"] = [[]]
+    transformations["landmarks"] = apply_landmarks(
+        img, transformations["mask"]
+    )
     # Save the transformations
     return img, imgpath, imgname, transformations
 

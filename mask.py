@@ -24,7 +24,9 @@ def save_image(img_array, image_path):
 def convert_to_grayscale(img):
     gray = pcv.rgb2gray_lab(img, "a")
     # gray = pcv.rgb2gray_lab(img, "b")
+    # gray = pcv.rgb2gray_cmyk(img, "c")
     return gray
+    print(gray)
 
 
 def apply_gaussian_blur(gray, ksize=11):
@@ -38,13 +40,18 @@ def create_mask(image):
     grayscale = convert_to_grayscale(image)
     blurred = apply_gaussian_blur(grayscale)
     # transformations["mask"] = create_mask(transformations["grayscale"])
-    binary = pcv.threshold.gaussian(
-        gray_img=blurred, ksize=2500, offset=5, object_type="dark"
-    )
-    # binary = pcv.erode(binary, ksize=5, i=1)
-    mask = pcv.fill(binary, size=200)
-    mask = pcv.fill_holes(mask)
-    return mask
+    # binary = pcv.threshold.mean(
+    #     # gray_img=gray, ksize=2500, offset=5, object_type="dark"
+    #     gray_img=blurred,
+    #     ksize=300,
+    #     offset=5,
+    #     object_type="light",
+    # )
+    binary = pcv.threshold.triangle(gray_img=blurred, object_type="dark")
+    binary = pcv.erode(binary, ksize=5, i=1)
+    binary = pcv.fill(binary, size=200)
+    binary = pcv.fill_holes(binary)
+    return binary
 
 
 def apply_mask(image, mask):
@@ -61,8 +68,8 @@ def mask_images(image_folder_path):
             for f in os.scandir(subfolder)
             if f.is_file() and f.name.endswith((".JPG", ".jpg", ".png"))
         ]
-        print(f"Images found in {subfolder}: {images}")
         for image_path in images:
+            print(f"Processing image: {image_path}")
             img, imgpath, imgname = pcv.readimage(image_path)
             mask = create_mask(img)
             masked_image = apply_mask(img, mask)
