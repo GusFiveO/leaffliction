@@ -1,6 +1,7 @@
 import joblib
 import os
 import argparse
+import tqdm
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -14,13 +15,12 @@ from sklearn.metrics import accuracy_score, classification_report
 from sklearn.datasets import load_files
 
 from plantcv import plantcv as pcv
+from transformation_utils import create_mask, analyze
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Leaf Type Classifier")
-    parser.add_argument(
-        "dataset", type=str, help="Path to the dataset directory"
-    )
+    parser.add_argument("dataset", type=str, help="Path to the dataset directory")
     return parser.parse_args()
 
 
@@ -29,37 +29,41 @@ def load_dataset(dataset_path):
     return dataset
 
 
-def convert_to_grayscale(img):
-    return pcv.rgb2gray_lab(img, "a")
+# def convert_to_grayscale(img):
+#     # return pcv.rgb2gray_lab(img, "a")
+#     return pcv.rgb2gray_lab(img, "b")
 
 
-def apply_gaussian_blur(gray, ksize=11):
-    return pcv.gaussian_blur(gray, (ksize, ksize), 0)
+# def apply_gaussian_blur(gray, ksize=11):
+#     return pcv.gaussian_blur(gray, (ksize, ksize), 0)
 
 
-def create_mask(image):
-    pcv.params.sample_label = "plant"
-    grayscale = convert_to_grayscale(image)
-    blurred = apply_gaussian_blur(grayscale)
-    binary = pcv.threshold.triangle(gray_img=blurred, object_type="dark")
-    binary = pcv.erode(binary, ksize=5, i=1)
-    binary = pcv.fill(binary, size=200)
-    binary = pcv.fill_holes(binary)
-    return binary
+# def create_mask(image):
+#     pcv.params.sample_label = "plant"
+#     grayscale = convert_to_grayscale(image)
+#     blurred = apply_gaussian_blur(grayscale)
+#     binary = pcv.threshold.triangle(gray_img=blurred, object_type="dark")
+#     binary = pcv.erode(binary, ksize=5, i=1)
+#     binary = pcv.fill(binary, size=200)
+#     binary = pcv.fill_holes(binary)
+#     return binary
 
 
-def analyze(img, mask, label):
-    pcv.params.sample_label = label
-    shape_img = pcv.analyze.size(img=img, labeled_mask=mask)
-    return shape_img
+# def analyze(img, mask, label):
+#     pcv.params.sample_label = label
+#     shape_img = pcv.analyze.size(img=img, labeled_mask=mask)
+#     return shape_img
 
 
 def create_dataframe(dataset):
     samples = []
     for directory, label in zip(dataset.filenames, dataset.target):
         images = [f.path for f in os.scandir(directory)]
-        for image_path in images:
-            img, imgpath, imgname = pcv.readimage(image_path.decode())
+        # for image_path in images:
+        for image_path in tqdm.tqdm(images, desc=f"Processing {directory}"):
+            # print(f"Processing {image_path}")
+            # img, imgpath, imgname = pcv.readimage(image_path.decode())
+            img, imgpath, imgname = pcv.readimage(image_path)
             mask = create_mask(img)
             obs_key = imgpath + "/" + imgname
             analyze(img, mask, obs_key)
@@ -93,15 +97,13 @@ def plot_correlation_matrix(features):
         square=True,
         linewidths=0.5,
     )
-    plt.show()
+    # plt.show()
 
 
 def evaluate_model(model, X_test, y_test):
     y_test_pred = model.predict(X_test)
     print("Accuracy:", accuracy_score(y_test, y_test_pred))
-    print(
-        "Classification Report:\n", classification_report(y_test, y_test_pred)
-    )
+    print("Classification Report:\n", classification_report(y_test, y_test_pred))
 
 
 def train_pipeline(X, y):
@@ -132,7 +134,7 @@ def train_pipeline(X, y):
     return pipeline
 
 
-def save_model(model, path="leaf_classifier_pipeline.pkl"):
+def save_model(model, path="weights/leaf_classifier_pipeline.pkl"):
     joblib.dump(model, path)
 
 
@@ -158,6 +160,21 @@ if __name__ == "__main__":
 
     # Optional: visualize correlation
     plot_correlation_matrix(X)
+    # sns.pairplot(df, hue="label", diag_kind="kde")
+    # plt.tight_layout()
+    # plt.show()
+
+    # drop_cols = [
+    #     "area",
+    #     "width",
+    #     "height",
+    #     "longest_path",
+    #     "center_of_mass_x",
+    #     "center_of_mass_y",
+    # ]
+
+    # # Remove irrelevant features
+    # X = X.drop(columns=drop_cols)
 
     pipeline = train_pipeline(X, y)
     save_model(pipeline)

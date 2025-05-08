@@ -1,4 +1,5 @@
 import sys
+from skimage import img_as_ubyte
 from PIL import Image
 import os
 import argparse
@@ -6,6 +7,13 @@ import numpy as np
 from matplotlib import pyplot as plt
 from plantcv import plantcv as pcv
 import cv2
+
+from transformation_utils import (
+    create_mask,
+    analyze,
+    convert_to_grayscale,
+    apply_gaussian_blur,
+)
 
 color_channel_map = {
     # LAB Color Space
@@ -23,39 +31,39 @@ color_channel_map = {
 }
 
 
-def convert_to_grayscale(img):
-    gray = pcv.rgb2gray_lab(img, "a")
-    # gray = pcv.rgb2gray_lab(img, "b")
-    # gray = pcv.rgb2gray_hsv(img, "s")
-    # gray = pcv.rgb2gray_lab(img, "l")
-    # gray = pcv.rgb2gray_cmyk(img, "c")
-    print(gray)
-    return gray
+# def convert_to_grayscale(img):
+#     gray = pcv.rgb2gray_lab(img, "a")
+#     # gray = pcv.rgb2gray_lab(img, "b")
+#     # gray = pcv.rgb2gray_hsv(img, "s")
+#     # gray = pcv.rgb2gray_lab(img, "l")
+#     # gray = pcv.rgb2gray_cmyk(img, "c")
+#     print(gray)
+#     return gray
 
 
-def apply_gaussian_blur(gray, ksize=11):
-    blurred = pcv.gaussian_blur(gray, (ksize, ksize), 0)
-    return blurred
+# def apply_gaussian_blur(gray, ksize=11):
+#     blurred = pcv.gaussian_blur(gray, (ksize, ksize), 0)
+#     return blurred
 
 
-def create_mask(gray, threshold=50):
-    # binary = pcv.threshold.gaussian(
-    # binary = pcv.threshold.mean(
-    #     # gray_img=gray, ksize=2500, offset=5, object_type="dark"
-    #     gray_img=gray,
-    #     ksize=300,
-    #     offset=5,
-    #     object_type="light",
-    # )
-    # binary = pcv.threshold.binary(gray_img=gray, threshold=threshold)
-    binary = pcv.threshold.triangle(
-        gray_img=gray,
-        object_type="dark",
-    )
-    binary = pcv.erode(binary, ksize=5, i=1)
-    binary = pcv.fill(binary, size=200)
-    binary = pcv.fill_holes(binary)
-    return binary
+# def create_mask(gray, threshold=50):
+#     # binary = pcv.threshold.gaussian(
+#     # binary = pcv.threshold.mean(
+#     #     # gray_img=gray, ksize=2500, offset=5, object_type="dark"
+#     #     gray_img=gray,
+#     #     ksize=300,
+#     #     offset=5,
+#     #     object_type="light",
+#     # )
+#     # binary = pcv.threshold.binary(gray_img=gray, threshold=threshold)
+#     binary = pcv.threshold.triangle(
+#         gray_img=gray,
+#         object_type="dark",
+#     )
+#     binary = pcv.erode(binary, ksize=5, i=1)
+#     binary = pcv.fill(binary, size=200)
+#     binary = pcv.fill_holes(binary)
+#     return binary
 
 
 def apply_mask(img, mask):
@@ -85,9 +93,7 @@ def apply_landmarks(img, mask):
 
     bottom_landmarks = pcv.outputs.observations["plant"]["bottom_lmk"]["value"]
     top_landmarks = pcv.outputs.observations["plant"]["top_lmk"]["value"]
-    center_landmarks = pcv.outputs.observations["plant"]["center_v_lmk"][
-        "value"
-    ]
+    center_landmarks = pcv.outputs.observations["plant"]["center_v_lmk"]["value"]
 
     img_with_landmarks = img.copy()
 
@@ -103,9 +109,7 @@ def apply_landmarks(img, mask):
     return img_with_landmarks
 
 
-def extract_channel_histograms(
-    img, color_space, channels, bins=50, range=(0, 255)
-):
+def extract_channel_histograms(img, color_space, channels, bins=50, range=(0, 255)):
     histograms = {}
     for ch, name in channels:
         if color_space:
@@ -261,16 +265,14 @@ def transform(file_path):
     # fill the transormation dict with the transfornmations
     transformations["original"] = img
     transformations["grayscale"] = convert_to_grayscale(img)
-    transformations["blurred"] = apply_gaussian_blur(
-        transformations["grayscale"]
-    )
+    transformations["blurred"] = apply_gaussian_blur(transformations["grayscale"])
     # transformations["mask"] = create_mask(transformations["grayscale"])
-    transformations["mask"] = create_mask(transformations["blurred"])
+    # transformations["mask"] = create_mask(transformations["blurred"])
+    transformations["mask"] = create_mask(img)
     transformations["masked"] = apply_mask(img, transformations["mask"])
     transformations["analyze"] = analyze(img, transformations["mask"])
-    transformations["landmarks"] = apply_landmarks(
-        img, transformations["mask"]
-    )
+    transformations["landmarks"] = apply_landmarks(img, transformations["mask"])
+    # transformations["landmarks"] = [[]]
     # Save the transformations
     return img, imgpath, imgname, transformations
 
@@ -287,9 +289,7 @@ def plot_transformations(img, transformations):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Image transformation script")
-    parser.add_argument(
-        "-src", type=str, help="Path to the image file or directory"
-    )
+    parser.add_argument("-src", type=str, help="Path to the image file or directory")
     parser.add_argument(
         "-dst", type=str, help="Destination directory for transformed images"
     )

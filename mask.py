@@ -4,6 +4,7 @@ import numpy as np
 from plantcv import plantcv as pcv
 import argparse
 from PIL import Image
+from transformation_utils import create_mask
 
 
 def parse_args():
@@ -19,39 +20,6 @@ def save_image(img_array, image_path):
     print(f"Image path: {image_path}")
     img.save(image_path)
     print(f"MASKED: {image_path}")
-
-
-def convert_to_grayscale(img):
-    gray = pcv.rgb2gray_lab(img, "a")
-    # gray = pcv.rgb2gray_lab(img, "b")
-    # gray = pcv.rgb2gray_cmyk(img, "c")
-    return gray
-    print(gray)
-
-
-def apply_gaussian_blur(gray, ksize=11):
-    blurred = pcv.gaussian_blur(gray, (ksize, ksize), 0)
-    return blurred
-
-
-def create_mask(image):
-    pcv.params.sample_label = "plant"
-    # fill the transormation dict with the transfornmations
-    grayscale = convert_to_grayscale(image)
-    blurred = apply_gaussian_blur(grayscale)
-    # transformations["mask"] = create_mask(transformations["grayscale"])
-    # binary = pcv.threshold.mean(
-    #     # gray_img=gray, ksize=2500, offset=5, object_type="dark"
-    #     gray_img=blurred,
-    #     ksize=300,
-    #     offset=5,
-    #     object_type="light",
-    # )
-    binary = pcv.threshold.triangle(gray_img=blurred, object_type="dark")
-    binary = pcv.erode(binary, ksize=5, i=1)
-    binary = pcv.fill(binary, size=200)
-    binary = pcv.fill_holes(binary)
-    return binary
 
 
 def apply_mask(image, mask):
